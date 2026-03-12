@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="عطور الإمبراطورية">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1">
+      <stop offset="0" stop-color="#C6A75E"/>
+      <stop offset="1" stop-color="#F6D58A"/>
+    </linearGradient>
+  </defs>
+  <rect width="140" height="140" rx="20" fill="#0f0f0f" />
+  <circle cx="70" cy="50" r="32" fill="url(#g)" />
+  <text x="70" y="96" text-anchor="middle" font-family="Vazirmatn, cairo, sans-serif" font-size="22" fill="#fff">عطور</text>
+</svg>

@@ -1,0 +1,19 @@
+{
+  "cartId": "4a86f02939b541ccab88e39b31750db3",
+  "items": [
+    {
+      "perfumeId": 1,
+      "name": "Bleu de Chanel",
+      "price": 450.0,
+      "quantity": 2
+    },
+    {
+      "perfumeId": 2,
+      "name": "Sauvage",
+      "price": 380,
+      "quantity": 1
+    }
+  ],
+  "createdAt": "2026-03-11T21:26:49.058097Z",
+  "expiresAt": "2026-04-10T21:26:49.058097Z"
+}

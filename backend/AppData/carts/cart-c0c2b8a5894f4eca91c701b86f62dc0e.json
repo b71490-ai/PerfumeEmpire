@@ -1,0 +1,13 @@
+{
+  "cartId": "c0c2b8a5894f4eca91c701b86f62dc0e",
+  "items": [
+    {
+      "perfumeId": 1,
+      "name": "Bleu de Chanel",
+      "price": 450,
+      "quantity": 1
+    }
+  ],
+  "createdAt": "2026-03-11T22:50:11.891584Z",
+  "expiresAt": "2026-04-10T22:50:11.891844Z"
+}

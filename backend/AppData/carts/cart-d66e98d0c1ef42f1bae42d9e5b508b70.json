@@ -1,0 +1,19 @@
+{
+  "cartId": "d66e98d0c1ef42f1bae42d9e5b508b70",
+  "items": [
+    {
+      "perfumeId": 0,
+      "name": "Sauvage",
+      "price": 380,
+      "quantity": 4
+    },
+    {
+      "perfumeId": 0,
+      "name": "Sauvage",
+      "price": 380,
+      "quantity": 12
+    }
+  ],
+  "createdAt": "2026-03-12T09:56:45.295773Z",
+  "expiresAt": "2026-04-11T09:56:45.295889Z"
+}
