@@ -8,12 +8,15 @@ import { createOrder } from '@/lib/api'
 import { fetchStoreSettings } from '@/lib/api'
 import { trackAddPaymentInfo, trackPurchase } from '@/lib/analytics'
 import { digitsOnly, formatDecimal, formatMoney, getUserLocale, toEnglishDigits } from '@/lib/intl'
+import dynamic from 'next/dynamic'
+import MapPicker from '@/components/MapPicker'
 
 export default function CheckoutPage() {
   const CHECKOUT_DRAFT_KEY = 'checkoutFormDraftV1'
   const router = useRouter()
   const { cart, getCartTotal, clearCart, maintenanceMode, maintenanceMessage } = useCart()
-  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', deliveryMethod: 'delivery', paymentMethod: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', street: '', address: '', deliveryNotes: '', latitude: null, longitude: null, deliveryMethod: 'delivery', paymentMethod: '' })
+  const [mapOpen, setMapOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [support, setSupport] = useState({
@@ -44,7 +47,10 @@ export default function CheckoutPage() {
           name: parsedDraft?.name || prev.name,
           email: parsedDraft?.email || prev.email,
           phone: parsedDraft?.phone || prev.phone,
+          city: parsedDraft?.city || prev.city,
+          street: parsedDraft?.street || prev.street,
           address: parsedDraft?.address || prev.address,
+          deliveryNotes: parsedDraft?.deliveryNotes || prev.deliveryNotes,
           deliveryMethod: parsedDraft?.deliveryMethod || prev.deliveryMethod,
           paymentMethod: parsedDraft?.paymentMethod || prev.paymentMethod,
         }))
@@ -156,10 +162,12 @@ export default function CheckoutPage() {
     const normalizedEmail = String(form.email || '').trim()
     const normalizedPhone = digitsOnly(form.phone || '').trim()
     const normalizedAddress = String(form.address || '').trim()
+    const normalizedCity = String(form.city || '').trim()
+    const normalizedStreet = String(form.street || '').trim()
     const selectedPaymentMethod = String(form.paymentMethod || '').trim()
 
     if (!normalizedName || !normalizedEmail || !normalizedPhone || !normalizedAddress) {
-      setError('يرجى تعبئة جميع بيانات العميل قبل إتمام الطلب.')
+      setError('يرجى تعبئة اسم العميل، الإيميل، الهاتف، والعنوان الأساسي قبل إتمام الطلب.')
       return
     }
 
@@ -187,11 +195,20 @@ export default function CheckoutPage() {
     setError(null)
 
     const items = cart.map(i => ({ perfumeId: i.id, name: i.name, price: i.price, quantity: i.quantity }))
+    const addressParts = []
+    if (normalizedStreet) addressParts.push(normalizedStreet)
+    if (normalizedCity) addressParts.push(normalizedCity)
+    if (normalizedAddress) addressParts.push(normalizedAddress)
+    const fullAddress = `[delivery:${form.deliveryMethod}] ${addressParts.join(', ')}`
+
     const order = {
       customerName: normalizedName,
       email: normalizedEmail,
       phone: normalizedPhone,
-      address: `[delivery:${form.deliveryMethod}] ${normalizedAddress}`,
+      address: fullAddress,
+      deliveryNotes: String(form.deliveryNotes || '').trim(),
+      latitude: form.latitude || null,
+      longitude: form.longitude || null,
       paymentMethod: selectedPaymentMethod,
       total: finalTotal,
       items
@@ -290,8 +307,40 @@ export default function CheckoutPage() {
             </div>
 
             <div className="form-group">
-              <label>العنوان</label>
-              <textarea name="address" value={form.address} onChange={handleChange} required rows={4} disabled={maintenanceMode || loading} />
+              <label>المدينة</label>
+              <input name="city" value={form.city} onChange={handleChange} placeholder="المدينة" list="city-list" disabled={maintenanceMode || loading} />
+              <datalist id="city-list">
+                <option value="الرياض" />
+                <option value="جدة" />
+                <option value="الدمام" />
+                <option value="مكة المكرمة" />
+                <option value="المدينة المنورة" />
+                <option value="الطائف" />
+                <option value="ابها" />
+                <option value="الخبر" />
+              </datalist>
+            </div>
+
+            <div className="form-group">
+              <label>الشارع</label>
+              <input name="street" value={form.street} onChange={handleChange} placeholder="اسم الشارع و رقم المبنى" disabled={maintenanceMode || loading} />
+            </div>
+
+            <div className="form-group">
+              <label>العنوان (مزيد من التفاصيل)</label>
+              <textarea name="address" value={form.address} onChange={handleChange} required rows={3} disabled={maintenanceMode || loading} />
+            </div>
+
+            <div className="form-group">
+              <label>ملاحظات التوصيل (اختياري)</label>
+              <textarea name="deliveryNotes" value={form.deliveryNotes} onChange={handleChange} rows={2} placeholder="مثل: اترك الطرد عند الاستقبال" disabled={maintenanceMode || loading} />
+            </div>
+
+            <div className="form-group">
+              <button type="button" className="btn btn-secondary" onClick={() => setMapOpen(true)}>اختر الموقع من الخريطة</button>
+              {form.latitude && form.longitude && (
+                <div className="map-coords">موقع محدد: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}</div>
+              )}
             </div>
 
             <div className="form-group">
