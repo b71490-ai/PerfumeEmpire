@@ -1,7 +1,7 @@
 const axios = require('axios')
 ;(async () => {
   try {
-    const BACKEND = process.env.BACKEND_URL || 'http://localhost:5000'
+    const BACKEND = process.env.BACKEND_URL || 'https://perfume-backend-wlk8.onrender.com'
     console.log('Logging in as e2e_admin...')
     const login = await axios.post(`${BACKEND}/api/auth/login`, { username: 'e2e_admin', password: 'admin123' }, { withCredentials: true })
     if (login.status !== 200) throw new Error('login failed')

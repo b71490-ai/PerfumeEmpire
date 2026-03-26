@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const apiTarget = String(
-  process.env.API_PROXY_TARGET || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+  process.env.API_PROXY_TARGET || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'https://perfume-backend-wlk8.onrender.com'
 ).replace(/\/+$/, '')
 
 const nextConfig = {
@@ -25,6 +25,10 @@ const nextConfig = {
       {
         protocol: 'http',
         hostname: '127.0.0.1'
+      },
+      {
+        protocol: 'https',
+        hostname: 'perfume-backend-wlk8.onrender.com'
       }
     ]
   },

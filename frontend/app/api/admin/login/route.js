@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const BACKEND = process.env.BACKEND_URL || 'http://localhost:5000';
+const BACKEND = process.env.BACKEND_URL || 'https://perfume-backend-wlk8.onrender.com';
 
 export async function POST(req) {
   try {

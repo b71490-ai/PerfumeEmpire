@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
-// This test assumes backend running at http://localhost:5000 and frontend at http://localhost:3001
-const BACKEND = process.env.BACKEND_URL || 'http://localhost:5000'
+// This test assumes backend running at https://perfume-backend-wlk8.onrender.com and frontend at http://localhost:3001
+const BACKEND = process.env.BACKEND_URL || 'https://perfume-backend-wlk8.onrender.com'
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:3001'
 
 test('admin can view tax total and apply tax filter', async ({ page, context, request }) => {

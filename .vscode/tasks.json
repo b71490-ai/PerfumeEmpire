@@ -4,7 +4,7 @@
 		{
 			"label": "Run Backend",
 			"type": "shell",
-			"command": "cd backend && ASPNETCORE_URLS=http://localhost:5000 dotnet run",
+			"command": "cd backend && JWT_KEY='dev-local-jwt-key-1234567890-abcdef' ASPNETCORE_URLS=http://localhost:5000 dotnet run",
 			"isBackground": true,
 			"problemMatcher": []
 		},
