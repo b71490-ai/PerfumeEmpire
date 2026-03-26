@@ -12170,6 +12170,240 @@ body { background: var(--brand-black) !important; color: var(--text-black) !impo
 }
 
 /* ========================================
+   CART PROFESSIONAL OVERRIDES (FINAL)
+   Scoped to cart page to avoid global conflicts
+   ======================================== */
+.cart-page {
+  --cart-surface: #ffffff;
+  --cart-border: rgba(15, 23, 42, 0.08);
+  --cart-muted: #667085;
+  --cart-title: #0f172a;
+  --cart-accent: #3f51d9;
+}
+
+.cart-page .cart-items,
+.cart-page .cart-summary {
+  border: 1px solid var(--cart-border);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+}
+
+.cart-page .cart-item {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: #f8fafc;
+}
+
+.cart-page .cart-item-name {
+  color: var(--cart-title);
+}
+
+.cart-page .cart-item-brand {
+  color: var(--cart-muted);
+}
+
+.cart-page .summary-title,
+.cart-page .summary-row,
+.cart-page .payment-title {
+  color: var(--cart-title);
+}
+
+.cart-page .payment-icons {
+  display: block;
+}
+
+.cart-page .payment-icons > span {
+  display: inline-block;
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: var(--cart-muted);
+  font-weight: 700;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.cart-page .upsell-section {
+  margin-top: 28px;
+}
+
+.cart-page .upsell-section h2 {
+  color: #111827;
+  font-size: 1.6rem;
+  margin-bottom: 14px;
+}
+
+.cart-page .upsell-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+  overflow: visible;
+}
+
+.cart-page .upsell-card {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+}
+
+.cart-page .upsell-card .perfume-image {
+  height: 180px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.cart-page .upsell-card .perfume-image img,
+.cart-page .upsell-card .perfume-image > span img {
+  object-fit: cover;
+}
+
+.cart-page .upsell-card .perfume-content {
+  padding: 12px;
+  gap: 6px;
+}
+
+.cart-page .upsell-card .shop-product-title {
+  color: #0f172a;
+  font-size: 1rem;
+  line-height: 1.35;
+  min-height: 2.7em;
+}
+
+.cart-page .upsell-card .brand {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.cart-page .upsell-card .price-primary {
+  color: #111827;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.cart-page .upsell-card .upsell-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .cart-page .cart-container {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .cart-page .cart-summary {
+    order: -1;
+    position: static;
+    top: auto;
+    padding: 16px;
+  }
+
+  .cart-page .cart-item {
+    grid-template-columns: 88px 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .cart-page .cart-item-image {
+    width: 88px;
+    height: 88px;
+    grid-column: 1;
+    grid-row: 1 / 4;
+  }
+
+  .cart-page .cart-item-details {
+    grid-column: 2;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .cart-page .cart-item-price-info {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .cart-page .cart-item-actions {
+    grid-column: 2;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .cart-page .quantity-controls-cart,
+  .cart-page .btn-remove-item {
+    width: 100%;
+  }
+
+  .cart-page .cart-item-total {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    text-align: right;
+  }
+
+  .cart-page .upsell-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .cart-page .upsell-card .perfume-image {
+    height: 150px;
+  }
+
+  .cart-page .upsell-section h2 {
+    font-size: 1.35rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .cart-page .cart-header {
+    padding: 12px 10px;
+  }
+
+  .cart-page .cart-header h1 {
+    font-size: 1.15rem;
+  }
+
+  .cart-page .cart-item {
+    grid-template-columns: 80px 1fr;
+  }
+
+  .cart-page .cart-item-image {
+    width: 80px;
+    height: 80px;
+  }
+
+  .cart-page .cart-item-name {
+    font-size: 0.95rem;
+  }
+
+  .cart-page .item-total-price {
+    font-size: 1.05rem;
+  }
+
+  .cart-page .upsell-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cart-page .upsell-card .perfume-image {
+    height: 220px;
+  }
+
+  .cart-page .payment-icons > span {
+    width: 100%;
+    font-size: 0.92rem;
+  }
+}
+
+/* ========================================
    CART MOBILE HOTFIX
    Keep cart fields aligned on small screens
    ======================================== */
