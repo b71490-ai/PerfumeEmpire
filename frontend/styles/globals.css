@@ -12169,4 +12169,100 @@ body { background: var(--brand-black) !important; color: var(--text-black) !impo
   outline-offset: 2px;
 }
 
+/* ========================================
+   CART MOBILE HOTFIX
+   Keep cart fields aligned on small screens
+   ======================================== */
+@media (max-width: 768px) {
+  .cart-page .cart-item {
+    grid-template-columns: 92px 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 12px;
+  }
+
+  .cart-page .cart-item-image {
+    width: 92px;
+    height: 92px;
+    grid-column: 1;
+    grid-row: 1 / 4;
+  }
+
+  .cart-page .cart-item-details {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .cart-page .cart-item-price-info {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .cart-page .cart-item-actions {
+    grid-column: 2;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .cart-page .quantity-controls-cart,
+  .cart-page .btn-remove-item {
+    width: 100%;
+  }
+
+  .cart-page .cart-item-total {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    text-align: right;
+    margin-top: 4px;
+  }
+
+  .cart-page .upsell-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .cart-page .upsell-card {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .cart-page .cart-container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .cart-page .cart-item {
+    grid-template-columns: 82px 1fr;
+    gap: 10px;
+  }
+
+  .cart-page .cart-item-image {
+    width: 82px;
+    height: 82px;
+  }
+
+  .cart-page .cart-item-name {
+    font-size: 0.95rem;
+    line-height: 1.35;
+  }
+
+  .cart-page .item-total-price {
+    font-size: 1.05rem;
+  }
+
+  .cart-page .upsell-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 
