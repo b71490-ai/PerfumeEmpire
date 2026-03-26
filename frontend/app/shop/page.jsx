@@ -462,17 +462,18 @@ export default function Shop() {
                     const tags = (perfume.tags || []).map(t => String(t || '').toLowerCase())
                     const isLimited = !!(perfume.isLimitedEdition || tags.includes('limited') || badgeText.includes('limited') || badgeText.includes('إصدار محدود'))
                     if ((perfume.discount ?? 0) > 0) {
-                      return <span className="badge sale-badge shop-discount-corner">-{perfume.discount}%</span>
+                      return (
+                        <span className="badge sale-badge shop-discount-corner">
+                          <span className="shop-discount-icon" aria-hidden>🏷</span>
+                          <span className="shop-discount-value">-{perfume.discount}%</span>
+                        </span>
+                      )
                     }
                     if (isLimited) {
                       return <span className="badge badge--ribbon">إصدار محدود</span>
                     }
                     return null
                   })()}
-
-                  {perfume.discount > 0 && (
-                    <span className="badge sale-badge shop-discount-corner">-{perfume.discount}%</span>
-                  )}
                   {/* legacy image-overlay removed in favor of explicit quick-action buttons */}
                 </div>
               )}

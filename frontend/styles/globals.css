@@ -12499,4 +12499,78 @@ body { background: var(--brand-black) !important; color: var(--text-black) !impo
   }
 }
 
+/* ========================================
+   SHOP MOBILE CARD TUNEUP
+   Cleaner discount badge with icon on phones
+   ======================================== */
+.shop-page--shein .shop-discount-corner {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  top: 8px;
+  left: 8px;
+  right: auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: linear-gradient(135deg, #c82333 0%, #ef4444 100%) !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  font-size: 0.75rem;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(185, 28, 28, 0.32);
+}
+
+.shop-page--shein .shop-discount-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
+.shop-page--shein .shop-discount-value {
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .shop-page--shein .perfumes-grid {
+    gap: 10px;
+  }
+
+  .shop-page--shein .shop-product-card {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  }
+
+  .shop-page--shein .shop-product-card .perfume-content {
+    padding: 10px;
+    min-height: 168px;
+  }
+
+  .shop-page--shein .shop-product-card h2 {
+    font-size: 0.9rem;
+    min-height: 2.5em;
+  }
+
+  .shop-page--shein .shop-discount-corner {
+    top: 6px;
+    left: 6px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    gap: 4px;
+  }
+
+  .shop-page--shein .shop-discount-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 0.56rem;
+  }
+}
+
 
