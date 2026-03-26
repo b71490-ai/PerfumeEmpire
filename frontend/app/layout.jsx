@@ -17,6 +17,7 @@ const cairo = Cairo({
 })
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+const STORE_SETTINGS_FETCH_OPTIONS = { next: { revalidate: 300 } }
 const structuredData = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -64,7 +65,7 @@ const normalizePixelId = (value) => {
 
 async function getTrackingSettings() {
   try {
-    const res = await fetch(getServerApiUrl('/store-settings'), { cache: 'no-store' })
+    const res = await fetch(getServerApiUrl('/store-settings'), STORE_SETTINGS_FETCH_OPTIONS)
     if (!res.ok) {
       return { gaId: '', gtmId: '', pixelId: '' }
     }
@@ -88,7 +89,7 @@ export async function generateMetadata() {
   const metadataBase = new URL(siteUrl)
 
   try {
-    const res = await fetch(getServerApiUrl('/store-settings'), { cache: 'no-store' })
+    const res = await fetch(getServerApiUrl('/store-settings'), STORE_SETTINGS_FETCH_OPTIONS)
     if (!res.ok) {
       return {
         metadataBase,
@@ -176,10 +177,10 @@ export default async function RootLayout({ children }) {
   })()
 
   const serverTheme = cookieTheme === 'dark' || cookieTheme === 'light' ? cookieTheme : null
-  const htmlClass = cairo.className
+  const htmlClass = serverTheme ? `${cairo.className} ${serverTheme === 'dark' ? 'theme-dark' : 'theme-light'}` : cairo.className
 
-    return (
-      <html lang="ar" dir="rtl" className={htmlClass} data-theme={serverTheme ?? undefined}>
+  return (
+      <html lang="ar" dir="rtl" className={htmlClass} data-theme={serverTheme ?? undefined} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
         {gtmId && (
@@ -224,9 +225,8 @@ t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, d
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
-        <Script
+        <script
           id="theme-init"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(() => { try {
               try { document.documentElement.classList.add('${cairo.className}'); } catch(e){}
@@ -234,7 +234,6 @@ t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, d
               const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
               const pick = stored === 'dark' || stored === 'light' ? stored : (prefersDark ? 'dark' : 'light');
               try {
-                // only set theme classes/attrs if SSR didn't already render them via cookie
                 const ssrTheme = ${serverTheme ? `'${serverTheme}'` : 'null'};
                 if (!ssrTheme) {
                   document.documentElement.classList.toggle('theme-dark', pick === 'dark');
@@ -249,7 +248,7 @@ t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, d
           }}
         />
       </head>
-      <body className={serverTheme ? `theme-${serverTheme}` : undefined} data-theme={serverTheme ?? undefined}>
+      <body className={serverTheme ? (serverTheme === 'dark' ? 'theme-dark' : 'theme-light') : undefined} data-theme={serverTheme ?? undefined} suppressHydrationWarning>
         {gtmId && (
           <noscript>
             <iframe

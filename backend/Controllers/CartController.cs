@@ -1,8 +1,7 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Mvc;
-using PerfumeEmpire.DTOs;
-using PerfumeEmpire.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
+using PerfumeEmpire.Data;
 
 namespace PerfumeEmpire.Controllers;
 
@@ -10,213 +9,118 @@ namespace PerfumeEmpire.Controllers;
 [Route("api/[controller]")]
 public class CartController : ControllerBase
 {
-    private readonly IWebHostEnvironment _env;
-    private readonly ApplicationDbContext _db;
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
-    private const int CartTtlDays = 30;
+	private const string XsrfCookieName = "XSRF-TOKEN";
+	private static readonly ConcurrentDictionary<string, List<CartLine>> CartStore = new();
+	private readonly ApplicationDbContext _db;
 
-    public CartController(IWebHostEnvironment env, ApplicationDbContext db)
-    {
-        _env = env;
-        _db = db;
-    }
+	public CartController(ApplicationDbContext db)
+	{
+		_db = db;
+	}
 
-    private string CartsDir()
-    {
-        var dir = Path.Combine(_env.ContentRootPath, "AppData", "carts");
-        Directory.CreateDirectory(dir);
-        return dir;
-    }
+	[HttpPost("init")]
+	public IActionResult Init()
+	{
+		var cartId = Guid.NewGuid().ToString("N");
+		var xsrfToken = Guid.NewGuid().ToString("N");
 
-    private string CartPath(string cartId) => Path.Combine(CartsDir(), $"cart-{cartId}.json");
+		CartStore.TryAdd(cartId, new List<CartLine>());
 
-    [HttpPost("init")]
-    public IActionResult InitCart()
-    {
-        // Prefer existing cookie
-        var cookie = Request.Cookies["cartId"];
-        string cartId = string.IsNullOrWhiteSpace(cookie) ? Guid.NewGuid().ToString("N") : cookie!;
+		Response.Cookies.Append(XsrfCookieName, xsrfToken, new CookieOptions
+		{
+			HttpOnly = false,
+			SameSite = SameSiteMode.Lax,
+			Secure = false,
+			Path = "/"
+		});
 
-        var path = CartPath(cartId);
-        CartDto cart;
-        if (System.IO.File.Exists(path))
-        {
-            var txt = System.IO.File.ReadAllText(path);
-            try { cart = JsonSerializer.Deserialize<CartDto>(txt, JsonOptions) ?? new CartDto { CartId = cartId }; } catch { cart = new CartDto { CartId = cartId }; }
-        }
-        else
-        {
-            cart = new CartDto { CartId = cartId, CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(CartTtlDays) };
-            System.IO.File.WriteAllText(path, JsonSerializer.Serialize(cart, JsonOptions));
-        }
+		return Ok(new
+		{
+			cartId,
+			csrfToken = xsrfToken,
+			items = Array.Empty<object>()
+		});
+	}
 
-        var secure = _env.IsProduction() || Request.IsHttps;
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = secure,
-            SameSite = secure ? SameSiteMode.None : SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(CartTtlDays),
-            Path = "/"
-        };
-        Response.Cookies.Append("cartId", cartId, cookieOptions);
+	[HttpPost("merge")]
+	public async Task<IActionResult> Merge([FromBody] MergeCartRequest? request)
+	{
+		if (request == null || request.Items == null)
+		{
+			return BadRequest(new { message = "بيانات السلة غير صالحة" });
+		}
 
-        // issue a double-submit CSRF cookie for client-side JS to read
-        var csrf = Guid.NewGuid().ToString("N");
-        var csrfOpts = new CookieOptions
-        {
-            HttpOnly = false,
-            Secure = secure,
-            SameSite = secure ? SameSiteMode.None : SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(CartTtlDays),
-            Path = "/"
-        };
-        Response.Cookies.Append("XSRF-TOKEN", csrf, csrfOpts);
-        return Ok(cart);
-    }
+		var cartId = string.IsNullOrWhiteSpace(request.CartId)
+			? Guid.NewGuid().ToString("N")
+			: request.CartId.Trim();
 
-    [HttpGet]
-    public IActionResult GetCart([FromQuery] string? id)
-    {
-        var cookie = Request.Cookies["cartId"];
-        var cartId = (!string.IsNullOrWhiteSpace(id) ? id : cookie) ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(cartId)) return Ok(new CartDto());
+		var currentLines = CartStore.GetOrAdd(cartId, _ => new List<CartLine>());
 
-        var path = CartPath(cartId);
-        if (!System.IO.File.Exists(path)) return Ok(new CartDto { CartId = cartId });
+		var ids = request.Items
+			.Where(i => i != null && i.PerfumeId > 0 && i.Quantity > 0)
+			.Select(i => i.PerfumeId)
+			.Distinct()
+			.ToList();
 
-        var txt = System.IO.File.ReadAllText(path);
-        try
-        {
-            var cart = JsonSerializer.Deserialize<CartDto>(txt, JsonOptions) ?? new CartDto { CartId = cartId };
-            return Ok(cart);
-        }
-        catch
-        {
-            return Ok(new CartDto { CartId = cartId });
-        }
-    }
+		var products = await _db.Perfumes
+			.Where(p => ids.Contains(p.Id))
+			.ToDictionaryAsync(p => p.Id);
 
-    [HttpPut]
-    public IActionResult UpdateCart([FromBody] CartDto dto)
-    {
-        if (dto == null) return BadRequest();
-        var cookie = Request.Cookies["cartId"];
-        var cartId = !string.IsNullOrWhiteSpace(dto.CartId) ? dto.CartId : cookie ?? Guid.NewGuid().ToString("N");
-        dto.CartId = cartId;
-        dto.ExpiresAt = DateTime.UtcNow.AddDays(CartTtlDays);
-        dto.CreatedAt = dto.CreatedAt == default ? DateTime.UtcNow : dto.CreatedAt;
+		foreach (var item in request.Items)
+		{
+			if (item == null || item.PerfumeId <= 0 || item.Quantity <= 0) continue;
+			if (!products.TryGetValue(item.PerfumeId, out var perfume)) continue;
 
-        var path = CartPath(cartId);
-        System.IO.File.WriteAllText(path, JsonSerializer.Serialize(dto, JsonOptions));
+			var safeQty = Math.Max(1, Math.Min(item.Quantity, Math.Max(0, perfume.Stock)));
+			if (safeQty <= 0) continue;
 
-        var secure = _env.IsProduction() || Request.IsHttps;
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = secure,
-            SameSite = secure ? SameSiteMode.None : SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(CartTtlDays),
-            Path = "/"
-        };
-        Response.Cookies.Append("cartId", cartId, cookieOptions);
+			var existing = currentLines.FirstOrDefault(l => l.PerfumeId == item.PerfumeId);
+			if (existing == null)
+			{
+				currentLines.Add(new CartLine { PerfumeId = item.PerfumeId, Quantity = safeQty });
+			}
+			else
+			{
+				existing.Quantity = Math.Max(1, Math.Min(existing.Quantity + safeQty, Math.Max(0, perfume.Stock)));
+			}
+		}
 
-        // ensure CSRF cookie present for client
-        var csrf = Guid.NewGuid().ToString("N");
-        var csrfOpts = new CookieOptions
-        {
-            HttpOnly = false,
-            Secure = secure,
-            SameSite = secure ? SameSiteMode.None : SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(CartTtlDays),
-            Path = "/"
-        };
-        Response.Cookies.Append("XSRF-TOKEN", csrf, csrfOpts);
-        return Ok(dto);
-    }
+		var xsrfToken = Request.Cookies[XsrfCookieName];
+		if (string.IsNullOrWhiteSpace(xsrfToken))
+		{
+			xsrfToken = Guid.NewGuid().ToString("N");
+			Response.Cookies.Append(XsrfCookieName, xsrfToken, new CookieOptions
+			{
+				HttpOnly = false,
+				SameSite = SameSiteMode.Lax,
+				Secure = false,
+				Path = "/"
+			});
+		}
 
-    [HttpPost("merge")]
-    public async Task<IActionResult> MergeCart([FromBody] CartDto incoming)
-    {
-        if (incoming == null) return BadRequest();
-        // guard against missing items arrays to avoid NullReferenceException
-        incoming.Items = incoming.Items ?? new List<CartItemDto>();
-        var cookie = Request.Cookies["cartId"];
-        var cartId = !string.IsNullOrWhiteSpace(incoming.CartId) ? incoming.CartId : cookie ?? Guid.NewGuid().ToString("N");
+		return Ok(new
+		{
+			cartId,
+			importedCount = currentLines.Count,
+			items = currentLines.Select(i => new { perfumeId = i.PerfumeId, quantity = i.Quantity })
+		});
+	}
 
-        var path = CartPath(cartId);
-        CartDto existing = new() { CartId = cartId };
-        if (System.IO.File.Exists(path))
-        {
-            try { existing = JsonSerializer.Deserialize<CartDto>(System.IO.File.ReadAllText(path), JsonOptions) ?? existing; } catch { }
-        }
+	public class MergeCartRequest
+	{
+		public string? CartId { get; set; }
+		public List<MergeCartItem> Items { get; set; } = new();
+	}
 
-        // ensure existing.Items is not null
-        existing.Items = existing.Items ?? new List<CartItemDto>();
+	public class MergeCartItem
+	{
+		public int PerfumeId { get; set; }
+		public int Quantity { get; set; }
+	}
 
-        // Merge quantities by PerfumeId, cap to available stock
-        var byId = existing.Items.ToDictionary(i => i.PerfumeId, i => i);
-        foreach (var item in incoming.Items)
-        {
-            if (byId.TryGetValue(item.PerfumeId, out var ex))
-            {
-                // sum quantities from guest + existing user cart
-                ex.Quantity = ex.Quantity + item.Quantity;
-            }
-            else
-            {
-                byId[item.PerfumeId] = new CartItemDto { PerfumeId = item.PerfumeId, Name = item.Name, Price = item.Price, Quantity = item.Quantity };
-            }
-        }
-
-        var perfumeIds = byId.Keys.ToList();
-        var perfumes = await _db.Perfumes.Where(p => perfumeIds.Contains(p.Id)).ToListAsync();
-        var perfumeById = perfumes.ToDictionary(p => p.Id, p => p);
-
-        // enforce stock caps and fill latest price/name where possible
-        var merged = new List<CartItemDto>();
-        foreach (var kv in byId)
-        {
-            var pid = kv.Key;
-            var item = kv.Value;
-            if (perfumeById.TryGetValue(pid, out var p))
-            {
-                var allowed = Math.Max(0, p.Stock);
-                var qty = Math.Min(item.Quantity, allowed > 0 ? allowed : item.Quantity);
-                merged.Add(new CartItemDto { PerfumeId = pid, Name = p.Name, Price = p.Price, Quantity = qty });
-            }
-            else
-            {
-                merged.Add(item);
-            }
-        }
-
-        var result = new CartDto { CartId = cartId, Items = merged, CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(CartTtlDays) };
-        System.IO.File.WriteAllText(path, JsonSerializer.Serialize(result, JsonOptions));
-
-        var secure = _env.IsProduction() || Request.IsHttps;
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = secure,
-            SameSite = secure ? SameSiteMode.None : SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(CartTtlDays),
-            Path = "/"
-        };
-        Response.Cookies.Append("cartId", cartId, cookieOptions);
-
-        // rotate/set CSRF token for client
-        var csrf = Guid.NewGuid().ToString("N");
-        var csrfOpts = new CookieOptions
-        {
-            HttpOnly = false,
-            Secure = secure,
-            SameSite = secure ? SameSiteMode.None : SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddDays(CartTtlDays),
-            Path = "/"
-        };
-        Response.Cookies.Append("XSRF-TOKEN", csrf, csrfOpts);
-
-        return Ok(result);
-    }
+	public class CartLine
+	{
+		public int PerfumeId { get; set; }
+		public int Quantity { get; set; }
+	}
 }

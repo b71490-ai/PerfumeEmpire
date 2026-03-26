@@ -7,8 +7,6 @@ import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import FreeShippingProgress from '@/components/FreeShippingProgress'
 import ThemeToggle from '@/components/ThemeToggle'
-import MiniCart from '@/components/MiniCart'
-import TrustBadges from '@/components/TrustBadges'
 import { useAdmin } from '@/context/AdminContext'
 import { fetchStoreSettings } from '@/lib/api'
 
@@ -106,7 +104,13 @@ export default function Header() {
             <span>المفضلة</span>
           </Link>
           
-          <MiniCart />
+          <Link href="/cart" className="nav-item cart-link">
+            <span>🛒</span>
+            <span>السلة</span>
+            {cartCount > 0 && (
+              <span className="cart-badge">{cartCount}</span>
+            )}
+          </Link>
           
           {isAdmin && (
             <Link href="/admin/dashboard" className="nav-item admin-btn">
@@ -121,7 +125,6 @@ export default function Header() {
           </div>
         )}
       </div>
-      <TrustBadges />
     </header>
   )
 }

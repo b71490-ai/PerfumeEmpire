@@ -1,19 +1,37 @@
 using Microsoft.EntityFrameworkCore;
 using PerfumeEmpire.Data;
 using PerfumeEmpire.Models;
-using PerfumeEmpire.Authorization;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using StackExchange.Redis;
-using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// If a .env file exists in the project root load it into environment variables
+// This makes local development easier without changing production behavior.
+try
+{
+    var envPath = Path.Combine(builder.Environment.ContentRootPath ?? Directory.GetCurrentDirectory(), ".env");
+    if (File.Exists(envPath))
+    {
+        DotNetEnv.Env.Load(envPath);
+        Console.WriteLine("[Program] Loaded .env file: " + envPath);
+    }
+}
+catch { }
+
 // JWT key must be provided via configuration/secrets. Reject default development key.
 // Ensure key length >= 32 bytes for HMAC-SHA256
+// Support reading JWT key from either configuration key `Jwt:Key` or env `JWT_KEY` (common pattern)
 var jwtCandidate = builder.Configuration["Jwt:Key"];
+var envJwt = Environment.GetEnvironmentVariable("JWT_KEY");
+Console.WriteLine($"[Program] Config Jwt:Key present: {!string.IsNullOrWhiteSpace(jwtCandidate)}, length: {(jwtCandidate?.Length ?? 0)}");
+Console.WriteLine($"[Program] Env JWT_KEY present: {!string.IsNullOrWhiteSpace(envJwt)}, length: {(envJwt?.Length ?? 0)}");
+if (string.IsNullOrWhiteSpace(jwtCandidate))
+{
+    jwtCandidate = envJwt;
+}
 if (string.IsNullOrWhiteSpace(jwtCandidate) || jwtCandidate.Length < 32 || (jwtCandidate ?? string.Empty).Contains("dev_secret"))
 {
     var msg = "Invalid or missing Jwt:Key. Set a strong secret via environment or secret manager (minimum 32 chars).\n" +
@@ -66,7 +84,7 @@ if (!string.IsNullOrWhiteSpace(redisConn))
 }
 
 // JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"]!;
+var jwtKey = jwtCandidate!;
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 builder.Services.AddAuthentication(options =>
 {
@@ -86,18 +104,7 @@ builder.Services.AddAuthentication(options =>
         };
     });
 
-// Register authorization and permission policies
-builder.Services.AddSingleton<IAuthorizationHandler, PermissionPolicyHandler>();
-builder.Services.AddAuthorization(options =>
-{
-    // Register a policy for each Permission enum value to allow using numeric permission policies
-    foreach (Permission p in Enum.GetValues(typeof(Permission)))
-    {
-        var mask = (long)p;
-        var name = $"Permission:{mask}";
-        options.AddPolicy(name, policy => policy.Requirements.Add(new PermissionPolicyRequirement(mask)));
-    }
-});
+builder.Services.AddAuthorization();
 
 
 
@@ -167,8 +174,18 @@ using (var scope = app.Services.CreateScope())
     if (!db.Users.Any())
     {
         var hashed = BCrypt.Net.BCrypt.HashPassword("admin123");
-        db.Users.Add(new User { Username = "admin", Password = hashed, Role = "Admin", Permissions = (long)Permission.All });
+        db.Users.Add(new User { Username = "admin", Password = hashed, Role = "Admin", Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports });
         db.SaveChanges();
+    }
+    else
+    {
+        // Ensure at least one admin has reporting permission during local development
+        var adminUser = db.Users.FirstOrDefault(u => u.Role == "Admin" || u.Role == "admin");
+        if (adminUser != null && adminUser.Permissions == 0)
+        {
+            adminUser.Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports;
+            db.SaveChanges();
+        }
     }
 }
 
@@ -179,30 +196,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
-// Simple double-submit CSRF protection for state-changing requests.
-// Exempt authentication endpoints like login/refresh/register so initial login can occur.
-app.Use(async (context, next) =>
-{
-    if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
-    {
-        var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-        var exempt = new[] { "/api/auth/login", "/api/auth/refresh", "/api/auth/register", "/api/cart/init" };
-        var isExempt = exempt.Any(e => path.StartsWith(e));
-        if (!isExempt)
-        {
-            var cookie = context.Request.Cookies["XSRF-TOKEN"];
-            var header = context.Request.Headers["X-XSRF-TOKEN"].FirstOrDefault();
-            if (string.IsNullOrEmpty(cookie) || string.IsNullOrEmpty(header) || !string.Equals(cookie, header, StringComparison.Ordinal))
-            {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsJsonAsync(new { error = "Invalid CSRF token" });
-                return;
-            }
-        }
-    }
-
-    await next();
-});
 // In development we avoid forcing HTTPS redirection so local proxying (HTTP) works
 // and developers can test without dealing with self-signed cert redirects.
 if (!app.Environment.IsDevelopment())

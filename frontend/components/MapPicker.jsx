@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 
 export default function MapPicker({ initial, onSelect, onClose }) {
   const mapRef = useRef(null)
@@ -11,32 +9,53 @@ export default function MapPicker({ initial, onSelect, onClose }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    if (!containerRef.current) return
-    // create map
-    mapRef.current = L.map(containerRef.current, { center: initial || [24.7136, 46.6753], zoom: 12 })
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(mapRef.current)
+    if (typeof window === 'undefined' || !containerRef.current) return
 
-    if (initial && initial[0] && initial[1]) {
-      markerRef.current = L.marker(initial).addTo(mapRef.current)
+    // inject leaflet CSS from CDN if not present
+    const cssHref = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+    if (!document.querySelector(`link[href="${cssHref}"]`)) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = cssHref
+      document.head.appendChild(link)
     }
 
-    const onMapClick = (e) => {
-      const latlng = e.latlng
-      if (markerRef.current) {
-        markerRef.current.setLatLng(latlng)
-      } else {
-        markerRef.current = L.marker(latlng).addTo(mapRef.current)
+    let mounted = true
+    import('leaflet').then((L) => {
+      if (!mounted) return
+      mapRef.current = L.map(containerRef.current, { center: initial || [24.7136, 46.6753], zoom: 12 })
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mapRef.current)
+
+      if (initial && initial[0] && initial[1]) {
+        markerRef.current = L.marker(initial, { draggable: true }).addTo(mapRef.current)
+        markerRef.current.on('dragend', () => {})
       }
-    }
 
-    mapRef.current.on('click', onMapClick)
-    setReady(true)
-    return () => {
-      try { mapRef.current.off('click', onMapClick); mapRef.current.remove() } catch (e) {}
-    }
-  }, [])
+      const onMapClick = (e) => {
+        const latlng = e.latlng
+        if (markerRef.current) {
+          markerRef.current.setLatLng(latlng)
+        } else {
+          markerRef.current = L.marker(latlng, { draggable: true }).addTo(mapRef.current)
+          markerRef.current.on('dragend', () => {})
+        }
+      }
+
+      // ensure map tiles render correctly inside modal
+      setTimeout(() => { try { mapRef.current.invalidateSize(); } catch (e) {} }, 200)
+
+      mapRef.current.on('click', onMapClick)
+      setReady(true)
+
+      return () => {
+        try { mapRef.current.off('click', onMapClick); mapRef.current.remove() } catch (e) {}
+      }
+    }).catch(() => {})
+
+    return () => { mounted = false }
+  }, [initial])
 
   const handleConfirm = () => {
     if (!markerRef.current) return

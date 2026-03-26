@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { fetchPerfumes, fetchStoreSettings, initCart, mergeCart, updateCart } from '@/lib/api'
+import { fetchPerfumes, fetchStoreSettings } from '@/lib/api'
 
 const CartContext = createContext()
 const RUNTIME_SYNC_MIN_INTERVAL_MS = 5000
@@ -11,23 +11,14 @@ export function CartProvider({ children }) {
   const [wishlist, setWishlist] = useState([])
   const [storageHydrated, setStorageHydrated] = useState(false)
   const mountedRef = useRef(true)
-  const lastRemovedRef = useRef(null)
-  const lastRemovedTimerRef = useRef(null)
-  const [lastRemoved, setLastRemoved] = useState(null)
   const syncInFlightRef = useRef(null)
   const lastRuntimeSyncAtRef = useRef(0)
-  const cartIdRef = useRef(null)
-  const syncTimerRef = useRef(null)
-  const skipNextSyncRef = useRef(false)
   const cartStorageRef = useRef(null)
   const wishlistStorageRef = useRef(null)
   const [storeRuntime, setStoreRuntime] = useState({
     maintenanceMode: false,
     maintenanceMessage: 'المتجر تحت صيانة مؤقتة، سنعود قريباً.'
   })
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [savedRecently, setSavedRecently] = useState(false)
-  const savedTimerRef = useRef(null)
 
   const syncStoreRuntime = useCallback((force = false) => {
     if (syncInFlightRef.current) {
@@ -87,18 +78,6 @@ export function CartProvider({ children }) {
 
   // تحميل السلة والمفضلة من localStorage عند البداية
   useEffect(() => {
-    const waitForCookie = (name, timeout = 800) => new Promise((resolve) => {
-      if (typeof document === 'undefined') return resolve(null)
-      const start = Date.now()
-      const check = () => {
-        const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-        if (m) return resolve(decodeURIComponent(m[2]))
-        if (Date.now() - start > timeout) return resolve(null)
-        setTimeout(check, 50)
-      }
-      check()
-    })
-
     const loadAndSyncSavedItems = async () => {
       try {
         await syncStoreRuntime(true)
@@ -121,7 +100,7 @@ export function CartProvider({ children }) {
           wishlistStorageRef.current = savedWishlist
         }
         if (parsedCart.length === 0 && parsedWishlist.length === 0) {
-          // still attempt to initialize server cart for session continuity
+          return
         }
 
         try {
@@ -144,10 +123,10 @@ export function CartProvider({ children }) {
               }
             })
 
-              setCart(syncedCart)
-              const serializedCart = JSON.stringify(syncedCart)
-              localStorage.setItem('cart', serializedCart)
-              cartStorageRef.current = serializedCart
+            setCart(syncedCart)
+            const serializedCart = JSON.stringify(syncedCart)
+            localStorage.setItem('cart', serializedCart)
+            cartStorageRef.current = serializedCart
           }
 
           if (parsedWishlist.length > 0) {
@@ -173,51 +152,6 @@ export function CartProvider({ children }) {
           }
         } catch {
           // keep saved local data if API is unavailable
-        }
-
-        // Initialize or merge with server-side cart
-        try {
-          const serverInit = await initCart()
-          if (serverInit && serverInit.cartId) {
-            cartIdRef.current = serverInit.cartId
-            try {
-              localStorage.setItem('cartId', serverInit.cartId)
-            } catch {}
-          }
-
-          // If we had a local parsedCart, merge it into server cart
-          if (parsedCart.length > 0) {
-            setIsSyncing(true)
-            const incoming = {
-              cartId: cartIdRef.current || undefined,
-              items: parsedCart.map(i => ({ perfumeId: i.id, name: i.name, price: i.price, quantity: i.quantity }))
-            }
-            // ensure the XSRF cookie has been applied by the browser before sending
-            try { await waitForCookie('XSRF-TOKEN', 1000) } catch {}
-            let merged
-            try {
-              merged = await mergeCart(incoming)
-              // mark saved on successful merge
-              if (merged) {
-                if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
-                setSavedRecently(true)
-                savedTimerRef.current = setTimeout(() => setSavedRecently(false), 2000)
-              }
-            } finally {
-              setIsSyncing(false)
-            }
-            if (merged && Array.isArray(merged.items)) {
-              // avoid immediate sync back to server
-              skipNextSyncRef.current = true
-              // normalize server shape (perfumeId) to client shape (id)
-              const mapped = merged.items.map(it => ({ id: it.perfumeId ?? it.id, ...it }))
-              setCart(mapped)
-              try { localStorage.setItem('cart', JSON.stringify(mapped)); cartStorageRef.current = JSON.stringify(mapped) } catch {}
-              if (merged.cartId) { cartIdRef.current = merged.cartId; try { localStorage.setItem('cartId', merged.cartId) } catch {} }
-            }
-          }
-        } catch {
-          // ignore server cart errors — keep local cart
         }
       } catch {
         localStorage.removeItem('cart')
@@ -303,107 +237,19 @@ export function CartProvider({ children }) {
     return () => window.removeEventListener('storage', handleStorage)
   }, [syncStoreRuntime])
 
-  // Merge guest cart into server cart when an auth login occurs elsewhere
-  useEffect(() => {
-    const handleAuthLogin = async (ev) => {
-      try {
-        if (!storageHydrated) return
-        if (!Array.isArray(cart) || cart.length === 0) return
-
-        const payload = {
-          cartId: cartIdRef.current || undefined,
-          items: cart.map(i => ({ perfumeId: i.id, name: i.name, price: i.price, quantity: i.quantity }))
-        }
-
-        setIsSyncing(true)
-        let merged
-        try {
-          // ensure CSRF cookie present before sending merge
-          try { await waitForCookie('XSRF-TOKEN', 1000) } catch {}
-          merged = await mergeCart(payload)
-          if (merged) {
-            if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
-            setSavedRecently(true)
-            savedTimerRef.current = setTimeout(() => setSavedRecently(false), 2000)
-          }
-        } finally {
-          setIsSyncing(false)
-        }
-
-        if (merged && Array.isArray(merged.items)) {
-          // avoid immediate sync back to server
-          skipNextSyncRef.current = true
-          // normalize server shape (perfumeId) to client shape (id)
-          const mapped = merged.items.map(it => ({ id: it.perfumeId ?? it.id, ...it }))
-          setCart(mapped)
-          try {
-            const s = JSON.stringify(mapped)
-            localStorage.setItem('cart', s)
-            cartStorageRef.current = s
-          } catch (e) {}
-          if (merged.cartId) {
-            cartIdRef.current = merged.cartId
-            try { localStorage.setItem('cartId', merged.cartId) } catch (e) {}
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('auth:login', handleAuthLogin)
-      return () => window.removeEventListener('auth:login', handleAuthLogin)
-    }
-    return undefined
-  }, [storageHydrated, cart])
-
   // حفظ السلة في localStorage عند التغيير
   useEffect(() => {
     if (!storageHydrated) return
-    // persist locally
+
     if (cart.length > 0) {
       const serializedCart = JSON.stringify(cart)
       localStorage.setItem('cart', serializedCart)
       cartStorageRef.current = serializedCart
-    } else {
-      localStorage.removeItem('cart')
-      cartStorageRef.current = null
-    }
-
-    // debounce sync to server
-    if (skipNextSyncRef.current) {
-      // consume the skip flag once
-      skipNextSyncRef.current = false
       return
     }
 
-    if (syncTimerRef.current) {
-      clearTimeout(syncTimerRef.current)
-    }
-
-    syncTimerRef.current = setTimeout(async () => {
-      try {
-        const payload = {
-          cartId: cartIdRef.current || undefined,
-          items: cart.map(i => ({ perfumeId: i.id, name: i.name, price: i.price, quantity: i.quantity }))
-        }
-        try {
-          setIsSyncing(true)
-          await updateCart(payload)
-          // on successful save, show transient saved indicator
-          if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
-          setSavedRecently(true)
-          savedTimerRef.current = setTimeout(() => setSavedRecently(false), 2000)
-        } finally {
-          setIsSyncing(false)
-        }
-        // ignore response — server sets cookie
-      } catch {
-        // ignore transient failures
-      }
-      syncTimerRef.current = null
-    }, 800)
+    localStorage.removeItem('cart')
+    cartStorageRef.current = null
   }, [cart, storageHydrated])
 
   // حفظ المفضلة في localStorage عند التغيير
@@ -484,44 +330,6 @@ export function CartProvider({ children }) {
   // حذف منتج من السلة
   const removeFromCart = (productId) => {
     setCart(prevCart => prevCart.filter(item => item.id !== productId))
-  }
-
-  // حذف مع إمكانية التراجع (يحفظ العنصر مؤقتاً ليسترجع عند التراجع)
-  const removeWithUndo = (productId, timeoutMs = 5000) => {
-    const removed = cart.find(item => item.id === productId)
-    if (!removed) return
-
-    // remove immediately from UI
-    setCart(prevCart => prevCart.filter(item => item.id !== productId))
-
-    // store last removed for possible undo
-    lastRemovedRef.current = { item: removed }
-    setLastRemoved({ item: removed })
-
-    if (lastRemovedTimerRef.current) clearTimeout(lastRemovedTimerRef.current)
-    lastRemovedTimerRef.current = setTimeout(() => {
-      lastRemovedRef.current = null
-      setLastRemoved(null)
-      lastRemovedTimerRef.current = null
-    }, timeoutMs)
-  }
-
-  const undoLastRemove = () => {
-    const data = lastRemovedRef.current
-    if (!data || !data.item) return false
-
-    setCart(prevCart => {
-      // restore at end of list
-      return [...prevCart, data.item]
-    })
-
-    if (lastRemovedTimerRef.current) {
-      clearTimeout(lastRemovedTimerRef.current)
-      lastRemovedTimerRef.current = null
-    }
-    lastRemovedRef.current = null
-    setLastRemoved(null)
-    return true
   }
 
   // مسح السلة بالكامل
@@ -613,16 +421,11 @@ export function CartProvider({ children }) {
   const value = {
     cart,
     wishlist,
-    isSyncing,
-    savedRecently,
     maintenanceMode: storeRuntime.maintenanceMode,
     maintenanceMessage: storeRuntime.maintenanceMessage,
     addToCart,
     updateQuantity,
     removeFromCart,
-    removeWithUndo,
-    undoLastRemove,
-    lastRemoved,
     clearCart,
     importCartItems,
     getCartTotal,

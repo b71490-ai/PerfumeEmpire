@@ -42,11 +42,10 @@ export function resolveImageSrc(src) {
   try {
     const url = new URL(src)
     if (url.hostname.includes('images.unsplash.com')) {
-      const hasAuto = url.searchParams.has('auto')
-      const hasFm = url.searchParams.has('fm')
-      if (!hasAuto && !hasFm) {
-        return src + (src.includes('?') ? '&' : '?') + 'auto=format&fm=webp'
-      }
+      if (!url.searchParams.has('auto')) url.searchParams.set('auto', 'format')
+      if (!url.searchParams.has('fm')) url.searchParams.set('fm', 'webp')
+      if (!url.searchParams.has('q')) url.searchParams.set('q', '75')
+      return url.toString()
     }
   } catch (e) {
     // ignore invalid url parsing

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const BACKEND = process.env.BACKEND_URL || 'http://localhost:5100';
+const BACKEND = process.env.BACKEND_URL || 'http://localhost:5000';
 
 export async function POST(req) {
   try {

@@ -96,7 +96,7 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className={`admin-root ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'drawer-open' : ''}`}>
-      <aside className="admin-sidebar" aria-expanded={!collapsed} role="navigation">
+      <aside className="admin-sidebar" role="navigation">
         <div className="admin-inner-scroll">
         <div className="admin-brand-wrap">
           <div className="admin-logo-row">

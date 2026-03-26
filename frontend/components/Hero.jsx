@@ -10,7 +10,7 @@ export default function Hero({ storeInfo }) {
   const info = useMemo(() => ({
     name: storeInfo?.storeName || 'عطور الإمبراطورية',
     tagline: storeInfo?.storeTagline || 'وجهتك الأولى للعطور الفاخرة',
-    heroImage: storeInfo?.heroImageUrl || storeInfo?.logoImageUrl || 'https://images.unsplash.com/photo-1519985176271-adb1088fa94c?w=1600',
+    heroImage: storeInfo?.heroImageUrl || storeInfo?.logoImageUrl || 'https://images.unsplash.com/photo-1519985176271-adb1088fa94c?w=1200&auto=format&fm=webp&q=75',
   }), [storeInfo])
 
   useEffect(() => {
@@ -56,8 +56,9 @@ export default function Hero({ storeInfo }) {
                 width={900}
                 height={900}
                 className="hero-strong__img"
-                sizes="(max-width: 768px) 100vw, 50vw"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 60vw, 42vw"
                 priority
+                fetchPriority="high"
                 placeholder="blur"
                 blurDataURL={BLUR_DATA_URL}
               />

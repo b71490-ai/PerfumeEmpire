@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import MyOrdersClient from './MyOrdersClient'
 
 export default function Page() {
-  redirect('/orders')
+  return <MyOrdersClient />
 }

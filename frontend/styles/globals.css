@@ -3931,17 +3931,12 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
 }
 
 .btn-cta-primary {
-  background: linear-gradient(90deg, var(--imperial-gold) 0%, #ffd98a 100%);
-  color: #111;
-  box-shadow: 0 12px 30px rgba(198,167,94,0.14);
-  padding: 0.95rem 1.6rem;
-  border-radius: 12px;
-  font-weight: 900;
+  background: #fff;
+  color: #5b61d6;
 }
 
 .btn-cta-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 18px 40px rgba(198,167,94,0.18);
+  transform: translateY(-2px);
 }
 
 .btn-cta-outline {

@@ -14,6 +14,9 @@ public class Order
     public decimal Shipping { get; set; }
     public decimal Vat { get; set; }
     public decimal Total { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? DeliveryNotes { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
     public string PaymentMethod { get; set; } = "cash_on_delivery";

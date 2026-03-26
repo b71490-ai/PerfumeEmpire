@@ -135,24 +135,3 @@ export async function searchPerfumesByImage(formData, config = {}) {
   const res = await api.post('/perfumes/search-by-image', formData, config);
   return res.data;
 }
-
-// Cart server sync helpers
-export async function initCart() {
-  const res = await api.post('/cart/init');
-  return res.data;
-}
-
-export async function getCart(cartId) {
-  const res = await api.get('/cart', { params: { id: cartId } });
-  return res.data;
-}
-
-export async function updateCart(payload) {
-  const res = await api.put('/cart', payload);
-  return res.data;
-}
-
-export async function mergeCart(payload) {
-  const res = await api.post('/cart/merge', payload);
-  return res.data;
-}

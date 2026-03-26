@@ -17,47 +17,9 @@ function addRefreshSubscriber(cb) {
 }
 
 export function setAuthToken(token) {
-  if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    // notify other windows/contexts that a login occurred
-    try {
-      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-        window.dispatchEvent(new CustomEvent('auth:login', { detail: { token } }))
-      }
-    } catch (e) {
-      // ignore
-    }
-  } else {
-    delete api.defaults.headers.common['Authorization'];
-    try {
-      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-        window.dispatchEvent(new CustomEvent('auth:logout'))
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
+  if (token) api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  else delete api.defaults.headers.common['Authorization'];
 }
-
-function readCookie(name) {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-// Attach CSRF header for state-changing requests using double-submit cookie
-api.interceptors.request.use((config) => {
-  try {
-    const method = (config.method || '').toUpperCase();
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-      const csrf = readCookie('XSRF-TOKEN');
-      if (csrf) config.headers['X-XSRF-TOKEN'] = csrf;
-    }
-  } catch (e) {
-    // ignore
-  }
-  return config;
-}, (err) => Promise.reject(err));
 
 api.interceptors.response.use(
   response => response,

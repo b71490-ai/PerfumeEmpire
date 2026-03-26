@@ -65,10 +65,8 @@ public class AuthController : ControllerBase
             {
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Role, normalizedRole)
+                , new Claim("permissions", user.Permissions.ToString())
             };
-
-            // include numeric permissions in token for policy checks (invariant culture)
-            claims.Add(new Claim("permissions", user.Permissions.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -95,18 +93,6 @@ public class AuthController : ControllerBase
             var cookieOptions = BuildRefreshCookieOptions(refresh.ExpiresAt);
             Response.Cookies.Append("refreshToken", refresh.Token, cookieOptions);
 
-            // issue a CSRF token cookie for double-submit verification (readable by JS)
-            var csrf = Guid.NewGuid().ToString("N");
-            var csrfOpts = new Microsoft.AspNetCore.Http.CookieOptions
-            {
-                HttpOnly = false,
-                Secure = cookieOptions.Secure,
-                SameSite = cookieOptions.SameSite,
-                Expires = refresh.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("XSRF-TOKEN", csrf, csrfOpts);
-
             return Ok(new { token = jwt, username = user.Username, role = normalizedRole });
         }
         catch (Exception ex)
@@ -126,8 +112,12 @@ public class AuthController : ControllerBase
             return Conflict(new { message = "User already exists" });
 
         var hashed = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-        var role = "Admin";
-        var user = new User { Username = dto.Username, Password = hashed, Role = role, Permissions = role == "Admin" ? (long)PerfumeEmpire.Authorization.Permission.All : 0 };
+        var user = new User { Username = dto.Username, Password = hashed, Role = "Admin" };
+        // In development, give seeded/registered admin a basic reporting permission to ease local testing
+        if (_env.IsDevelopment())
+        {
+            user.Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports;
+        }
         _db.Users.Add(user);
         _db.SaveChanges();
         return Ok(new { username = user.Username });
@@ -168,8 +158,8 @@ public class AuthController : ControllerBase
         {
             new Claim(ClaimTypes.Name, user.Username),
             new Claim(ClaimTypes.Role, normalizedRole)
+            , new Claim("permissions", user.Permissions.ToString())
         };
-        claims.Add(new Claim("permissions", user.Permissions.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -188,18 +178,6 @@ public class AuthController : ControllerBase
 
         var cookieOptions = BuildRefreshCookieOptions(stored.ExpiresAt);
         Response.Cookies.Append("refreshToken", stored.Token, cookieOptions);
-
-        // rotate CSRF token as well
-        var csrfNew = Guid.NewGuid().ToString("N");
-        var csrfOpts2 = new Microsoft.AspNetCore.Http.CookieOptions
-        {
-            HttpOnly = false,
-            Secure = cookieOptions.Secure,
-            SameSite = cookieOptions.SameSite,
-            Expires = stored.ExpiresAt,
-            Path = "/"
-        };
-        Response.Cookies.Append("XSRF-TOKEN", csrfNew, csrfOpts2);
 
         return Ok(new { token = jwt });
     }
@@ -223,17 +201,6 @@ public class AuthController : ControllerBase
         var cookieOptions = BuildRefreshCookieOptions(DateTime.UtcNow.AddDays(-1));
         Response.Cookies.Append("refreshToken", "", cookieOptions);
 
-        // clear XSRF token
-        var csrfClear = new Microsoft.AspNetCore.Http.CookieOptions
-        {
-            HttpOnly = false,
-            Secure = cookieOptions.Secure,
-            SameSite = cookieOptions.SameSite,
-            Expires = DateTime.UtcNow.AddDays(-1),
-            Path = "/"
-        };
-        Response.Cookies.Append("XSRF-TOKEN", "", csrfClear);
-
         return Ok(new { message = "Logged out" });
     }
 
@@ -253,16 +220,6 @@ public class AuthController : ControllerBase
 
         var cookieOptions = BuildRefreshCookieOptions(DateTime.UtcNow.AddDays(-1));
         Response.Cookies.Append("refreshToken", "", cookieOptions);
-
-        var csrfClear2 = new Microsoft.AspNetCore.Http.CookieOptions
-        {
-            HttpOnly = false,
-            Secure = cookieOptions.Secure,
-            SameSite = cookieOptions.SameSite,
-            Expires = DateTime.UtcNow.AddDays(-1),
-            Path = "/"
-        };
-        Response.Cookies.Append("XSRF-TOKEN", "", csrfClear2);
 
         return Ok(new { message = "Logged out (cookie)" });
     }
@@ -297,6 +254,6 @@ public class AuthController : ControllerBase
         if (username == null) return Unauthorized();
         var user = _db.Users.FirstOrDefault(u => u.Username == username);
         if (user == null) return Unauthorized();
-        return Ok(new { username = user.Username, role = user.Role, permissions = user.Permissions });
+        return Ok(new { username = user.Username, role = user.Role });
     }
 }

@@ -9,7 +9,11 @@ import { fetchStoreSettings } from '@/lib/api'
 import { trackAddPaymentInfo, trackPurchase } from '@/lib/analytics'
 import { digitsOnly, formatDecimal, formatMoney, getUserLocale, toEnglishDigits } from '@/lib/intl'
 import dynamic from 'next/dynamic'
-import MapPicker from '@/components/MapPicker'
+
+const MapPicker = dynamic(() => import('@/components/MapPicker'), {
+  ssr: false,
+  loading: () => null,
+})
 
 export default function CheckoutPage() {
   const CHECKOUT_DRAFT_KEY = 'checkoutFormDraftV1'
@@ -245,6 +249,39 @@ export default function CheckoutPage() {
     }
   }
 
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+      if (!res.ok) return null
+      const data = await res.json()
+      return data
+    } catch {
+      return null
+    }
+  }
+
+  const handleMapSelect = async ({ lat, lng }) => {
+    setForm(prev => ({ ...prev, latitude: lat, longitude: lng }))
+    setMapOpen(false)
+    const geo = await reverseGeocode(lat, lng)
+    if (!geo) return
+
+    // populate address parts when available but keep fields editable
+    const addr = geo.address || {}
+    const city = addr.city || addr.town || addr.village || addr.county || ''
+    const road = addr.road || ''
+    const house = addr.house_number || ''
+    const display = geo.display_name || ''
+
+    setForm(prev => ({
+      ...prev,
+      city: prev.city || city,
+      street: prev.street || [road, house].filter(Boolean).join(' ').trim() || prev.street,
+      address: prev.address || display || prev.address
+    }))
+  }
+
   if (cart.length === 0) {
     return (
       <main className="checkout-page-modern">
@@ -339,7 +376,13 @@ export default function CheckoutPage() {
             <div className="form-group">
               <button type="button" className="btn btn-secondary" onClick={() => setMapOpen(true)}>اختر الموقع من الخريطة</button>
               {form.latitude && form.longitude && (
-                <div className="map-coords">موقع محدد: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}</div>
+                <div>
+                  <div className="map-coords">موقع محدد: {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}</div>
+                  <div style={{marginTop:6}}>
+                    <label>العنوان المستخرج (قابل للتعديل)</label>
+                    <textarea name="address" value={form.address} onChange={handleChange} rows={2} />
+                  </div>
+                </div>
               )}
             </div>
 
@@ -424,6 +467,14 @@ export default function CheckoutPage() {
               <p className="checkout-helper-note">أكمل بيانات العميل لتفعيل زر إتمام الطلب.</p>
             )}
           </form>
+
+          {mapOpen && (
+            <MapPicker
+              initial={form.latitude && form.longitude ? [form.latitude, form.longitude] : undefined}
+              onSelect={(coords) => handleMapSelect({ lat: coords.lat, lng: coords.lng })}
+              onClose={() => setMapOpen(false)}
+            />
+          )}
 
           <aside className="checkout-sidebar-modern">
             <div className="checkout-card-modern">

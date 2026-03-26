@@ -141,7 +141,7 @@ export default function Home() {
       icon: '👔',
       description: 'تشكيلة فاخرة من العطور الرجالية العالمية',
       tone: 'tone-men',
-      image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=500',
+      image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=500&auto=format&fm=webp&q=75',
       count: '30+ منتج'
     },
     {
@@ -150,7 +150,7 @@ export default function Home() {
       icon: '💐',
       description: 'أرقى العطور النسائية الفاخرة',
       tone: 'tone-women',
-      image: 'https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?w=500',
+      image: 'https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?w=500&auto=format&fm=webp&q=75',
       count: '40+ منتج'
     },
     {
@@ -159,7 +159,7 @@ export default function Home() {
       icon: '🪔',
       description: 'بخور وعود أصلي من أجود الأنواع',
       tone: 'tone-incense',
-      image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=500',
+      image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?w=500&auto=format&fm=webp&q=75',
       count: '20+ منتج'
     },
     {
@@ -168,7 +168,7 @@ export default function Home() {
       icon: '✨',
       description: 'منتجات تجميل وعناية فاخرة',
       tone: 'tone-cosmetics',
-      image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500',
+      image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500&auto=format&fm=webp&q=75',
       count: '25+ منتج'
     }
   ]
@@ -280,7 +280,7 @@ export default function Home() {
                   className="category-img"
                   width={500}
                   height={320}
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                   placeholder="blur"
                   blurDataURL={BLUR_DATA_URL}
                 />
@@ -398,7 +398,7 @@ export default function Home() {
                       alt={product.name || product.brand}
                       width={500}
                       height={320}
-                      sizes="(max-width: 768px) 100vw, 33vw"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                       placeholder="blur"
                       blurDataURL={BLUR_DATA_URL}
                       unoptimized={!isOptimizableImageSrc(safeImageSrc)}
@@ -406,30 +406,10 @@ export default function Home() {
                     {Number(product.discount || 0) > 0 && (
                       <div className="discount-badge">-{Number(product.discount || 0)}%</div>
                     )}
-                    {/* product badges: new / top-seller */}
-                    {product.isNew && (
-                      <div className="badge badge--ribbon">جديد</div>
-                    )}
-                    {product.isTopSeller && (
-                      <div className="badge badge--circle">🔥</div>
-                    )}
                   </Link>
                   <div className="perfume-content">
                     <h3 className="shop-clickable-title">{product.name}</h3>
                     <p className="brand">{product.brand}</p>
-                    {/* rating row */}
-                    <div className="rating-row">
-                      <div className="stars" aria-hidden="true">
-                        {[0,1,2,3,4].map((i) => {
-                          const rating = Math.round(Number(product.averageRating || product.rating || 0))
-                          return (
-                            <span key={i} className={`star ${i < rating ? 'filled' : ''}`}>★</span>
-                          )
-                        })}
-                      </div>
-                      <div className="review-count">{Number(product.reviewsCount || 0) > 0 ? `${product.reviewsCount} تقييم` : 'لا تقييمات'}</div>
-                    </div>
-
                     <div className="price-section">
                       {Number(product.discount || 0) > 0 ? (
                         <div className="price-row">

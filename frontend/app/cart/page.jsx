@@ -15,7 +15,7 @@ import FreeShippingProgress from '@/components/FreeShippingProgress'
 
 export default function Cart() {
   const router = useRouter()
-  const { cart, updateQuantity, removeFromCart, removeWithUndo, undoLastRemove, clearCart, importCartItems, getCartTotal, maintenanceMode, maintenanceMessage, addToCart, isSyncing } = useCart()
+  const { cart, updateQuantity, removeFromCart, clearCart, importCartItems, getCartTotal, maintenanceMode, maintenanceMessage, addToCart } = useCart()
   const [toast, setToast] = useState(null)
   const lastTrackedCartSignatureRef = useRef('')
   const shareResetTimerRef = useRef(null)
@@ -110,7 +110,7 @@ export default function Cart() {
   }, [importCartItems])
 
   const showToast = (message) => {
-    setToast({ message })
+    setToast(message)
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -275,21 +275,7 @@ export default function Cart() {
       quantity: Number(item.quantity || 1),
       currency: commerce.currencyCode || 'SAR'
     })
-    // use undo-capable removal
-    if (typeof removeWithUndo === 'function') {
-      removeWithUndo(item.id)
-      setToast({ message: `تم حذف ${item.name}`, actionLabel: 'تراجع', action: () => {
-        if (typeof undoLastRemove === 'function') {
-          const ok = undoLastRemove()
-          if (ok) setToast({ message: 'تم التراجع' })
-        }
-      } })
-      // auto-clear after 5s
-      setTimeout(() => setToast(null), 5000)
-    } else {
-      removeFromCart(item.id)
-      showToast('تم حذف المنتج')
-    }
+    removeFromCart(item.id)
   }
 
   // Simple client-side coupon validation (replace with API call for production)
@@ -457,10 +443,7 @@ export default function Cart() {
     <main className="cart-page">
       {toast && (
         <div className="toast toast-success" role="status" aria-live="polite" aria-atomic="true">
-          <span>{toast.message}</span>
-          {toast.action && (
-            <button className="toast-action" onClick={() => { try { toast.action() } catch {} }} type="button">{toast.actionLabel || 'تراجع'}</button>
-          )}
+          <span>{toast}</span>
         </div>
       )}
 
@@ -472,9 +455,6 @@ export default function Cart() {
           <span>رجوع</span>
         </button>
         <h1>🛒 سلة التسوق ({cart.length} منتج)</h1>
-        {isSyncing && (
-          <div className="cart-sync-indicator" aria-live="polite">جاري الحفظ…</div>
-        )}
         <Link href="/shop" className="btn-home">المتجر</Link>
       </div>
 
@@ -510,6 +490,7 @@ export default function Cart() {
                     width={220}
                     height={220}
                     sizes="(max-width: 768px) 100px, 220px"
+                    loading="lazy"
                     unoptimized={!isOptimizableImageSrc(safeImageSrc)}
                     placeholder="blur"
                     blurDataURL={BLUR_DATA_URL}
@@ -545,20 +526,16 @@ export default function Cart() {
                   <div className="cart-item-actions">
                     <div className="quantity-controls-cart">
                       <button
-                        type="button"
                         onClick={() => handleDecreaseQuantity(item)}
                         className="quantity-btn-cart"
-                        aria-label={`نقص الكمية ${item.name}`}
                         disabled={maintenanceMode}
                       >
                         -
                       </button>
                       <span className="quantity-display-cart">{item.quantity}</span>
                       <button
-                        type="button"
                         onClick={() => handleIncreaseQuantity(item)}
                         className="quantity-btn-cart"
-                        aria-label={`زيادة الكمية ${item.name}`}
                         disabled={maintenanceMode}
                       >
                         +
