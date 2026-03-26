@@ -63,7 +63,18 @@ builder.Services.AddCors(options =>
 });
 
 // Configure DbContext (SQLite for persistence)
-var sqliteConn = builder.Configuration["ConnectionStrings:Default"] ?? "Data Source=perfume.db";
+var defaultDbPath = Path.Combine(builder.Environment.ContentRootPath ?? Directory.GetCurrentDirectory(), "AppData", "perfume.db");
+try
+{
+    var defaultDbDir = Path.GetDirectoryName(defaultDbPath);
+    if (!string.IsNullOrWhiteSpace(defaultDbDir) && !Directory.Exists(defaultDbDir))
+    {
+        Directory.CreateDirectory(defaultDbDir);
+    }
+}
+catch { }
+
+var sqliteConn = builder.Configuration["ConnectionStrings:Default"] ?? $"Data Source={defaultDbPath}";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(sqliteConn));
 

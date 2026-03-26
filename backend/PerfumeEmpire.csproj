@@ -9,13 +9,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.0.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
-    <PackageReference Include="StackExchange.Redis" Version="2.7.100" />
+    <PackageReference Include="StackExchange.Redis" Version="2.8.0" />
     <PackageReference Include="DotNetEnv" Version="3.1.0" />
   </ItemGroup>
 </Project>
