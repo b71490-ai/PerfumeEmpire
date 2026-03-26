@@ -126,6 +126,80 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var databaseReady = false;
+    bool SqliteTableExists(string tableName)
+    {
+        try
+        {
+            using var connection = db.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                connection.Open();
+            }
+
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = $name;";
+
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "$name";
+            parameter.Value = tableName;
+            command.Parameters.Add(parameter);
+
+            var result = command.ExecuteScalar();
+            return Convert.ToInt32(result) > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    int SqliteUserTableCount()
+    {
+        try
+        {
+            using var connection = db.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                connection.Open();
+            }
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT COUNT(1)
+                FROM sqlite_master
+                WHERE type = 'table'
+                  AND name NOT LIKE 'sqlite_%'
+                  AND name <> '__EFMigrationsHistory';";
+
+            var result = command.ExecuteScalar();
+            return Convert.ToInt32(result);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    void EnsureSqliteSchemaBootstrap()
+    {
+        if (!db.Database.IsSqlite()) return;
+
+        var missingCriticalTables = !SqliteTableExists("Perfumes") || !SqliteTableExists("Users") || !SqliteTableExists("Orders");
+        if (!missingCriticalTables) return;
+
+        var userTableCount = SqliteUserTableCount();
+        Console.Error.WriteLine($"SQLite schema check detected missing critical tables. User table count: {userTableCount}");
+
+        // Safe fallback for fresh/empty SQLite databases commonly seen in container deploys.
+        if (userTableCount == 0)
+        {
+            db.Database.EnsureDeleted();
+            db.Database.EnsureCreated();
+            databaseReady = true;
+            Console.WriteLine("SQLite schema bootstrapped via EnsureDeleted + EnsureCreated.");
+        }
+    }
+
     // Apply any pending EF Core migrations. This is safer for production than
     // automatically dropping and recreating the database.
     try
@@ -167,6 +241,24 @@ using (var scope = app.Services.CreateScope())
             {
                 Console.Error.WriteLine("EnsureCreated fallback failed: " + ensureEx);
             }
+        }
+    }
+
+    try
+    {
+        EnsureSqliteSchemaBootstrap();
+    }
+    catch (Exception sqliteSchemaEx)
+    {
+        Console.Error.WriteLine("SQLite schema bootstrap failed: " + sqliteSchemaEx);
+    }
+
+    if (db.Database.IsSqlite())
+    {
+        var missingCriticalTables = !SqliteTableExists("Perfumes") || !SqliteTableExists("Users") || !SqliteTableExists("Orders");
+        if (missingCriticalTables)
+        {
+            throw new InvalidOperationException("SQLite schema is missing required tables (Perfumes/Users/Orders) after startup initialization.");
         }
     }
 
