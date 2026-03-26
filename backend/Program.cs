@@ -23,15 +23,13 @@ catch { }
 
 // JWT key must be provided via configuration/secrets. Reject default development key.
 // Ensure key length >= 32 bytes for HMAC-SHA256
-// Support reading JWT key from either configuration key `Jwt:Key` or env `JWT_KEY` (common pattern)
-var jwtCandidate = builder.Configuration["Jwt:Key"];
+// Support reading JWT key from either configuration key `Jwt:Key` or env `JWT_KEY`.
+// Prefer env key when present to avoid platform-misconfigured short config keys.
+var configJwt = builder.Configuration["Jwt:Key"];
 var envJwt = Environment.GetEnvironmentVariable("JWT_KEY");
-Console.WriteLine($"[Program] Config Jwt:Key present: {!string.IsNullOrWhiteSpace(jwtCandidate)}, length: {(jwtCandidate?.Length ?? 0)}");
+var jwtCandidate = !string.IsNullOrWhiteSpace(envJwt) ? envJwt : configJwt;
+Console.WriteLine($"[Program] Config Jwt:Key present: {!string.IsNullOrWhiteSpace(configJwt)}, length: {(configJwt?.Length ?? 0)}");
 Console.WriteLine($"[Program] Env JWT_KEY present: {!string.IsNullOrWhiteSpace(envJwt)}, length: {(envJwt?.Length ?? 0)}");
-if (string.IsNullOrWhiteSpace(jwtCandidate))
-{
-    jwtCandidate = envJwt;
-}
 if (string.IsNullOrWhiteSpace(jwtCandidate) || jwtCandidate.Length < 32 || (jwtCandidate ?? string.Empty).Contains("dev_secret"))
 {
     var msg = "Invalid or missing Jwt:Key. Set a strong secret via environment or secret manager (minimum 32 chars).\n" +
@@ -317,6 +315,65 @@ using (var scope = app.Services.CreateScope())
             adminUser.Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports;
             db.SaveChanges();
         }
+    }
+
+    // Optional production-safe bootstrap for admin credentials.
+    // If ADMIN_BOOTSTRAP_PASSWORD is provided, sync that password to the bootstrap admin user.
+    try
+    {
+        var bootstrapUsername = (Environment.GetEnvironmentVariable("ADMIN_BOOTSTRAP_USERNAME") ?? "admin").Trim();
+        var bootstrapPassword = Environment.GetEnvironmentVariable("ADMIN_BOOTSTRAP_PASSWORD");
+        if (!string.IsNullOrWhiteSpace(bootstrapUsername)
+            && !string.IsNullOrWhiteSpace(bootstrapPassword)
+            && bootstrapPassword.Length >= 8)
+        {
+            var loweredBootstrapUsername = bootstrapUsername.ToLower();
+            var bootstrapAdmin = db.Users.FirstOrDefault(u => u.Username.ToLower() == loweredBootstrapUsername);
+
+            if (bootstrapAdmin == null)
+            {
+                db.Users.Add(new User
+                {
+                    Username = bootstrapUsername,
+                    Password = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword),
+                    Role = "Admin",
+                    Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports
+                });
+                db.SaveChanges();
+                Console.WriteLine($"Bootstrap admin user created: {bootstrapUsername}");
+            }
+            else
+            {
+                var updated = false;
+                if (!BCrypt.Net.BCrypt.Verify(bootstrapPassword, bootstrapAdmin.Password))
+                {
+                    bootstrapAdmin.Password = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword);
+                    updated = true;
+                }
+
+                if (!string.Equals(bootstrapAdmin.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    bootstrapAdmin.Role = "Admin";
+                    updated = true;
+                }
+
+                if (bootstrapAdmin.Permissions == 0)
+                {
+                    bootstrapAdmin.Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports;
+                    updated = true;
+                }
+
+                if (updated)
+                {
+                    db.SaveChanges();
+                    Console.WriteLine($"Bootstrap admin user synchronized: {bootstrapUsername}");
+                }
+            }
+        }
+    }
+    catch (Exception adminBootstrapEx)
+    {
+        Console.Error.WriteLine("Admin bootstrap skipped due to error: " + adminBootstrapEx.Message);
     }
 }
 

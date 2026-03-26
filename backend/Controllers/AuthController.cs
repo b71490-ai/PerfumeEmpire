@@ -32,6 +32,25 @@ public class AuthController : ControllerBase
         return string.IsNullOrWhiteSpace(role) ? "Admin" : role;
     }
 
+    private byte[] ResolveJwtKeyBytes()
+    {
+        var envJwt = Environment.GetEnvironmentVariable("JWT_KEY");
+        var configJwt = _config["Jwt:Key"];
+        var jwtKey = !string.IsNullOrWhiteSpace(envJwt) ? envJwt : configJwt;
+        if (string.IsNullOrWhiteSpace(jwtKey))
+        {
+            throw new InvalidOperationException("JWT signing key is missing. Set Jwt:Key or JWT_KEY.");
+        }
+
+        var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+        if (keyBytes.Length < 32)
+        {
+            throw new InvalidOperationException("JWT signing key must be at least 32 bytes (256 bits).");
+        }
+
+        return keyBytes;
+    }
+
     private Microsoft.AspNetCore.Http.CookieOptions BuildRefreshCookieOptions(DateTime expiresAt)
     {
         var secure = _env.IsProduction() || Request.IsHttps;
@@ -50,7 +69,14 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var user = _db.Users.FirstOrDefault(u => u.Username == dto.Username);
+            var normalizedUsername = (dto.Username ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedUsername))
+            {
+                return Unauthorized(new { message = "Invalid credentials" });
+            }
+
+            var loweredUsername = normalizedUsername.ToLower();
+            var user = _db.Users.FirstOrDefault(u => u.Username.ToLower() == loweredUsername);
             if (user == null) return Unauthorized(new { message = "Invalid credentials" });
 
             // Verify hashed password
@@ -58,7 +84,7 @@ public class AuthController : ControllerBase
             if (!verified) return Unauthorized(new { message = "Invalid credentials" });
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? "dev_secret_key_change_me");
+            var key = ResolveJwtKeyBytes();
 
             var normalizedRole = NormalizeRole(user.Role);
             var claims = new List<Claim>
@@ -152,7 +178,7 @@ public class AuthController : ControllerBase
 
         // generate new JWT
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? "dev_secret_key_change_me");
+        var key = ResolveJwtKeyBytes();
         var normalizedRole = NormalizeRole(user.Role);
         var claims = new List<Claim>
         {
