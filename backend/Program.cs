@@ -114,26 +114,54 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var databaseReady = false;
     // Apply any pending EF Core migrations. This is safer for production than
     // automatically dropping and recreating the database.
     try
     {
         db.Database.Migrate();
+        databaseReady = true;
 
-        db.Database.ExecuteSqlRaw(@"
-            UPDATE Orders
-            SET Phone = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Phone,
-                        '٠','0'),'١','1'),'٢','2'),'٣','3'),'٤','4'),'٥','5'),'٦','6'),'٧','7'),'٨','8'),'٩','9'),
-                        '۰','0'),'۱','1'),'۲','2'),'۳','3'),'۴','4'),'۵','5'),'۶','6'),'۷','7'),'۸','8'),'۹','9')
-            WHERE Phone IS NOT NULL;
-        ");
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                UPDATE Orders
+                SET Phone = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                            REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(Phone,
+                            '٠','0'),'١','1'),'٢','2'),'٣','3'),'٤','4'),'٥','5'),'٦','6'),'٧','7'),'٨','8'),'٩','9'),
+                            '۰','0'),'۱','1'),'۲','2'),'۳','3'),'۴','4'),'۵','5'),'۶','6'),'۷','7'),'۸','8'),'۹','9')
+                WHERE Phone IS NOT NULL;
+            ");
+        }
+        catch (Exception normalizeEx)
+        {
+            Console.Error.WriteLine("Phone normalization skipped: " + normalizeEx.Message);
+        }
     }
     catch (Exception ex)
     {
-        Console.Error.WriteLine("Failed to apply migrations: " + ex.Message);
-        // Do not recreate or delete production data here. Surface the error so
-        // operators can run migrations manually or inspect the issue.
+        Console.Error.WriteLine("Failed to apply migrations: " + ex);
+
+        // SQLite fallback: if migrations are unavailable in a fresh environment,
+        // create schema from the current model to avoid startup crashes.
+        if (db.Database.IsSqlite())
+        {
+            try
+            {
+                db.Database.EnsureCreated();
+                databaseReady = true;
+                Console.WriteLine("SQLite schema ensured via EnsureCreated fallback.");
+            }
+            catch (Exception ensureEx)
+            {
+                Console.Error.WriteLine("EnsureCreated fallback failed: " + ensureEx);
+            }
+        }
+    }
+
+    if (!databaseReady)
+    {
+        throw new InvalidOperationException("Database is not ready after migration/setup attempts.");
     }
 
     if (!db.Perfumes.Any())
