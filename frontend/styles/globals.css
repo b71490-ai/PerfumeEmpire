@@ -12829,40 +12829,84 @@ body { background: var(--brand-black) !important; color: var(--text-black) !impo
    SHOP STICKY FILTER SIDEBAR (FINAL)
    ======================================== */
 .shop-page--shein .shop-content-layout {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+  display: block;
 }
 
 .shop-page--shein .shop-side-filters {
-  position: sticky;
-  top: 96px;
-  z-index: 40;
-  animation: shopFilterStickyIn 300ms ease-out;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(92vw, 420px);
+  padding: 16px 12px;
+  z-index: 180;
+  transform: translateX(108%);
+  transition: transform 220ms ease;
+  animation: none;
+  pointer-events: none;
+}
+
+.shop-page--shein .shop-side-filters.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .shop-page--shein .shop-side-filters__inner {
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
-  padding: 14px;
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  overflow-y: auto;
   transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
 .shop-page--shein .shop-side-filters__inner:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+  transform: none;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
 }
 
 .shop-page--shein .shop-side-filters__inner h3 {
   margin: 0;
   font-size: 1rem;
   color: #0f172a;
+}
+
+.shop-page--shein .shop-side-filters__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shop-page--shein .shop-side-filters__close,
+.shop-page--shein .shop-filter-toggle {
+  display: inline-flex;
+}
+
+.shop-page--shein .shop-filter-backdrop {
+  display: inline-flex;
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  border: 0;
+  background: rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.shop-page--shein .shop-side-filters__footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .shop-page--shein .filter-group {
@@ -12908,22 +12952,42 @@ body { background: var(--brand-black) !important; color: var(--text-black) !impo
   padding: 7px 10px;
 }
 
+
 .shop-page--shein .shop-list-area {
   min-width: 0;
 }
 
 @media (max-width: 1024px) {
-  .shop-page--shein .shop-content-layout {
-    grid-template-columns: 1fr;
+  .shop-page--shein .shop-side-filters {
+    width: min(92vw, 420px);
+  }
+}
+
+@media (max-width: 720px) {
+  .shop-page--shein .shop-toolbar {
+    gap: 8px;
+  }
+
+  .shop-page--shein .shop-filter-toggle {
+    order: -1;
+  }
+
+  .shop-page--shein .results-count.shop-results-pill {
+    margin-inline-start: auto;
   }
 
   .shop-page--shein .shop-side-filters {
-    position: static;
-    animation: none;
+    width: min(100vw, 420px);
+    padding: 10px;
   }
 
   .shop-page--shein .shop-side-filters__inner {
-    margin-bottom: 10px;
+    border-radius: 20px;
+    padding: 16px;
+  }
+
+  .shop-page--shein .shop-side-filters__footer {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -38,6 +38,7 @@ export default function Shop() {
   const [minRatingFilter, setMinRatingFilter] = useState('0')
   const [brandFilter, setBrandFilter] = useState('all')
   const [sizeFilter, setSizeFilter] = useState('all')
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [currencySymbol, setCurrencySymbol] = useState('ر.س')
   const [currencyCode, setCurrencyCode] = useState('SAR')
   const trackedListSignatureRef = useRef('')
@@ -178,6 +179,17 @@ export default function Shop() {
     } catch (err) {
       // ignore URL parse errors
     }
+  }, [])
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 1024) {
+        setIsFilterOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   useEffect(() => {
@@ -393,6 +405,7 @@ export default function Shop() {
     setMinRatingFilter('0')
     setBrandFilter('all')
     setSizeFilter('all')
+    setIsFilterOpen(false)
   }
 
   const handleCategorySelect = (categoryId, event) => {
@@ -505,6 +518,16 @@ export default function Shop() {
             <option value="discount">الأكثر خصماً</option>
           </select>
         </div>
+        <button
+          className="btn btn-secondary shop-filter-toggle"
+          type="button"
+          onClick={() => setIsFilterOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={isFilterOpen}
+          aria-controls="shop-mobile-filters"
+        >
+          ⚙️ الفلتر
+        </button>
         {(searchTerm.trim() || activeCategory !== 'all' || sortBy !== 'default' || activeQuickFilter || minPriceFilter !== '' || maxPriceFilter !== '' || minRatingFilter !== '0' || brandFilter !== 'all' || sizeFilter !== 'all') && (
           <button className="btn btn-secondary" onClick={handleResetFilters} type="button">
             إعادة ضبط الفلاتر
@@ -515,10 +538,27 @@ export default function Shop() {
         </div>
       </div>
 
+      {isFilterOpen && (
+        <button
+          type="button"
+          className="shop-filter-backdrop"
+          aria-label="إغلاق الفلتر"
+          onClick={() => setIsFilterOpen(false)}
+        />
+      )}
+
       <div className="shop-content-layout">
-        <aside className="shop-side-filters" aria-label="فلترة المنتجات">
+        <aside
+          id="shop-mobile-filters"
+          className={`shop-side-filters ${isFilterOpen ? 'is-open' : ''}`}
+          aria-label="فلترة المنتجات"
+          aria-hidden={isFilterOpen ? 'false' : 'true'}
+        >
           <div className="shop-side-filters__inner">
-            <h3>فلترة احترافية</h3>
+            <div className="shop-side-filters__header">
+              <h3>فلترة احترافية</h3>
+              <button type="button" className="shop-side-filters__close" onClick={() => setIsFilterOpen(false)} aria-label="إغلاق الفلتر">✕</button>
+            </div>
 
             <div className="filter-group">
               <label htmlFor="filter-min-price">السعر من</label>
@@ -605,6 +645,11 @@ export default function Shop() {
               <button className={`quick-filter-btn ${activeQuickFilter === 'new' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'new' ? '' : 'new')}>🆕 وصل حديثاً</button>
               <button className={`quick-filter-btn ${activeQuickFilter === 'curated' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'curated' ? '' : 'curated')}>👑 مختارات خاصة</button>
               <button className={`quick-filter-btn ${activeQuickFilter === 'limited' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'limited' ? '' : 'limited')}>💎 إصدار محدود</button>
+            </div>
+
+            <div className="shop-side-filters__footer">
+              <button className="btn btn-secondary" type="button" onClick={handleResetFilters}>إعادة الضبط</button>
+              <button className="btn" type="button" onClick={() => setIsFilterOpen(false)}>عرض النتائج</button>
             </div>
           </div>
         </aside>
