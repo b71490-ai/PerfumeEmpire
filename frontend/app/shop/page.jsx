@@ -33,6 +33,11 @@ export default function Shop() {
   const [activeCategory, setActiveCategory] = useState('all')
   const [sortBy, setSortBy] = useState('default')
   const [activeQuickFilter, setActiveQuickFilter] = useState('')
+  const [minPriceFilter, setMinPriceFilter] = useState('')
+  const [maxPriceFilter, setMaxPriceFilter] = useState('')
+  const [minRatingFilter, setMinRatingFilter] = useState('0')
+  const [brandFilter, setBrandFilter] = useState('all')
+  const [sizeFilter, setSizeFilter] = useState('all')
   const [currencySymbol, setCurrencySymbol] = useState('ر.س')
   const [currencyCode, setCurrencyCode] = useState('SAR')
   const trackedListSignatureRef = useRef('')
@@ -61,10 +66,35 @@ export default function Shop() {
 
   const categoryNameById = categories.reduce((acc, c) => { acc[c.id] = c.name; return acc }, {})
 
+  const availableBrands = useMemo(() => {
+    const brands = [...new Set(perfumes.map((p) => String(p?.brand || '').trim()).filter(Boolean))]
+    return brands.sort((a, b) => a.localeCompare(b, 'ar'))
+  }, [perfumes])
+
   const filteredPerfumes = useMemo(() => {
     return perfumes.filter(p => {
       if (!p) return false
       if (activeCategory && activeCategory !== 'all' && p.category !== activeCategory) return false
+
+      const basePrice = Number(p?.price || 0)
+      const minPrice = Number(minPriceFilter || 0)
+      const maxPrice = Number(maxPriceFilter || 0)
+      if (minPriceFilter !== '' && basePrice < minPrice) return false
+      if (maxPriceFilter !== '' && basePrice > maxPrice) return false
+
+      const ratingValue = Number((p.averageRating ?? p.rating) ?? 0)
+      const minRating = Number(minRatingFilter || 0)
+      if (minRating > 0 && ratingValue < minRating) return false
+
+      if (brandFilter !== 'all' && String(p.brand || '').trim() !== brandFilter) return false
+
+      if (sizeFilter !== 'all') {
+        const productSizes = Array.isArray(p.sizes) && p.sizes.length > 0
+          ? p.sizes.map((item) => String(item || '').toLowerCase())
+          : ['50ml', '100ml']
+        if (!productSizes.includes(sizeFilter.toLowerCase())) return false
+      }
+
       // quick filters
       const tags = (p.tags || []).map(t => String(t || '').toLowerCase())
       const badgeText = String(p.badge || '').toLowerCase()
@@ -82,7 +112,7 @@ export default function Shop() {
       const hay = `${p.name || ''} ${p.brand || ''} ${p.description || ''}`.toLowerCase()
       return hay.includes(normalizedSearchTerm)
     })
-  }, [perfumes, activeCategory, normalizedSearchTerm, activeQuickFilter])
+  }, [perfumes, activeCategory, normalizedSearchTerm, activeQuickFilter, minPriceFilter, maxPriceFilter, minRatingFilter, brandFilter, sizeFilter])
 
   const sortedPerfumes = useMemo(() => {
     const arr = [...filteredPerfumes]
@@ -96,15 +126,24 @@ export default function Shop() {
       return arr
     }
 
-    if (sortBy === 'price-low') arr.sort((a,b) => (a.price||0) - (b.price||0))
+    if (sortBy === 'best-seller') arr.sort((a,b) => (b.purchasedCount||0) - (a.purchasedCount||0))
+    else if (sortBy === 'price-low' || sortBy === 'cheapest') arr.sort((a,b) => (a.price||0) - (b.price||0))
     else if (sortBy === 'price-high') arr.sort((a,b) => (b.price||0) - (a.price||0))
+    else if (sortBy === 'rating-high') arr.sort((a,b) => Number((b.averageRating ?? b.rating) ?? 0) - Number((a.averageRating ?? a.rating) ?? 0))
     else if (sortBy === 'name') arr.sort((a,b) => (a.name||'').localeCompare(b.name||''))
     else if (sortBy === 'discount') arr.sort((a,b) => (b.discount||0) - (a.discount||0))
     return arr
   }, [filteredPerfumes, sortBy, activeQuickFilter])
+
+  const newestIdThreshold = useMemo(() => {
+    const maxId = perfumes.reduce((max, p) => Math.max(max, Number(p?.id || 0)), 0)
+    return Math.max(0, maxId - 15)
+  }, [perfumes])
   
   const { addToCart, toggleWishlist, isInWishlist, maintenanceMode, maintenanceMessage, getCartTotal } = useCart()
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(500)
+  const [socialProofMessage, setSocialProofMessage] = useState('')
+  const [showFirstOrderPopup, setShowFirstOrderPopup] = useState(false)
   const { isAdmin } = useAdmin()
 
   useEffect(() => {
@@ -140,6 +179,62 @@ export default function Shop() {
       // ignore URL parse errors
     }
   }, [])
+
+  useEffect(() => {
+    try {
+      const dismissed = window.localStorage.getItem('first-order-popup-dismissed')
+      if (!dismissed) {
+        const timer = setTimeout(() => setShowFirstOrderPopup(true), 1400)
+        return () => clearTimeout(timer)
+      }
+    } catch (err) {
+      // ignore localStorage access issues
+    }
+    return undefined
+  }, [])
+
+  useEffect(() => {
+    if (!perfumes.length) return undefined
+
+    const timeouts = []
+    const showMessage = () => {
+      const inStockLow = perfumes.filter((p) => Number(p?.stock ?? 0) > 0 && Number(p?.stock ?? 0) <= 3)
+      const purchasedRecently = perfumes.filter((p) => Number(p?.purchasedCount ?? 0) > 0)
+
+      let message = ''
+      if (purchasedRecently.length > 0 && Math.random() > 0.35) {
+        const pick = purchasedRecently[Math.floor(Math.random() * purchasedRecently.length)]
+        message = `شخص اشترى قبل قليل: ${pick.name}`
+      } else if (inStockLow.length > 0) {
+        const pick = inStockLow[Math.floor(Math.random() * inStockLow.length)]
+        message = `باقي ${pick.stock} قطع فقط من ${pick.name}`
+      } else {
+        const pick = perfumes[Math.floor(Math.random() * perfumes.length)]
+        message = `شخص اشترى قبل قليل: ${pick.name}`
+      }
+
+      setSocialProofMessage(message)
+      const hideTimer = setTimeout(() => setSocialProofMessage(''), 4200)
+      timeouts.push(hideTimer)
+    }
+
+    showMessage()
+    const interval = setInterval(showMessage, 9000)
+
+    return () => {
+      clearInterval(interval)
+      timeouts.forEach((timer) => clearTimeout(timer))
+    }
+  }, [perfumes])
+
+  const dismissFirstOrderPopup = () => {
+    setShowFirstOrderPopup(false)
+    try {
+      window.localStorage.setItem('first-order-popup-dismissed', '1')
+    } catch (err) {
+      // ignore localStorage access issues
+    }
+  }
 
   const handleImageSelect = (file) => {
     if (!file) {
@@ -270,7 +365,7 @@ export default function Shop() {
       currency: currencyCode,
       itemListName
     })
-    router.push(`/shop/product/${perfume.id}`)
+    setQuickView(perfume)
   }
 
   const handleToggleWishlist = (perfume) => {
@@ -292,6 +387,12 @@ export default function Shop() {
     setSearchTerm('')
     setActiveCategory('all')
     setSortBy('default')
+    setActiveQuickFilter('')
+    setMinPriceFilter('')
+    setMaxPriceFilter('')
+    setMinRatingFilter('0')
+    setBrandFilter('all')
+    setSizeFilter('all')
   }
 
   const handleCategorySelect = (categoryId, event) => {
@@ -318,9 +419,29 @@ export default function Shop() {
       {quickView && (
         <QuickView perfume={quickView} currencySymbol={currencySymbol} onClose={() => setQuickView(null)} onAddToCart={handleAddToCart} />
       )}
+      {socialProofMessage && (
+        <div className="shop-social-proof" role="status" aria-live="polite">
+          <span className="shop-social-proof-dot" aria-hidden>●</span>
+          <span>{socialProofMessage}</span>
+        </div>
+      )}
       {toast && (
         <div className={`toast ${toast.type}`} role={toast.type === 'error' ? 'alert' : 'status'} aria-live={toast.type === 'error' ? 'assertive' : 'polite'} aria-atomic="true">
           {toast.message}
+        </div>
+      )}
+      {showFirstOrderPopup && (
+        <div className="first-order-popup-overlay" role="dialog" aria-modal="true" aria-label="خصم أول طلب">
+          <div className="first-order-popup-card">
+            <button type="button" className="first-order-popup-close" onClick={dismissFirstOrderPopup} aria-label="إغلاق">✕</button>
+            <div className="first-order-popup-badge">خصم ترحيبي</div>
+            <h3>خصم 15% على أول طلب</h3>
+            <p>استخدم الكود FIRST15 عند إتمام الطلب واحصل على خصم فوري.</p>
+            <div className="first-order-popup-actions">
+              <button type="button" className="first-order-popup-secondary" onClick={dismissFirstOrderPopup}>لاحقاً</button>
+              <Link href="/shop" className="first-order-popup-primary" onClick={dismissFirstOrderPopup}>احصل على الخصم</Link>
+            </div>
+          </div>
         </div>
       )}
       
@@ -375,13 +496,16 @@ export default function Shop() {
           <label>ترتيب حسب:</label>
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="sort-select">
             <option value="default">الافتراضي</option>
+            <option value="best-seller">الأكثر مبيعاً</option>
+            <option value="cheapest">الأرخص</option>
+            <option value="rating-high">الأعلى تقييماً</option>
             <option value="price-low">السعر: من الأقل للأعلى</option>
             <option value="price-high">السعر: من الأعلى للأقل</option>
             <option value="name">الاسم: أ - ي</option>
             <option value="discount">الأكثر خصماً</option>
           </select>
         </div>
-        {(searchTerm.trim() || activeCategory !== 'all' || sortBy !== 'default') && (
+        {(searchTerm.trim() || activeCategory !== 'all' || sortBy !== 'default' || activeQuickFilter || minPriceFilter !== '' || maxPriceFilter !== '' || minRatingFilter !== '0' || brandFilter !== 'all' || sizeFilter !== 'all') && (
           <button className="btn btn-secondary" onClick={handleResetFilters} type="button">
             إعادة ضبط الفلاتر
           </button>
@@ -391,27 +515,115 @@ export default function Shop() {
         </div>
       </div>
 
-      <div className="categories-tabs shop-categories-tabs" aria-label="فئات المنتجات">
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            className={`category-tab shop-category-tab ${activeCategory === cat.id ? 'active' : ''}`}
-            onClick={(event) => handleCategorySelect(cat.id, event)}
-          >
-            <span className="cat-icon">{cat.icon}</span>
-            <span>{cat.name}</span>
-          </button>
-        ))}
-      </div>
-      
-      <div className="quick-filters" role="region" aria-label="تجميعات سريعة">
-        <button className={`quick-filter-btn ${activeQuickFilter === 'best-seller' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'best-seller' ? '' : 'best-seller')}>🔥 الأكثر مبيعاً</button>
-        <button className={`quick-filter-btn ${activeQuickFilter === 'new' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'new' ? '' : 'new')}>🆕 وصل حديثاً</button>
-        <button className={`quick-filter-btn ${activeQuickFilter === 'curated' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'curated' ? '' : 'curated')}>👑 مختارات خاصة</button>
-        <button className={`quick-filter-btn ${activeQuickFilter === 'limited' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'limited' ? '' : 'limited')}>💎 إصدار محدود</button>
-      </div>
-      
-      <div className="perfumes-grid">
+      <div className="shop-content-layout">
+        <aside className="shop-side-filters" aria-label="فلترة المنتجات">
+          <div className="shop-side-filters__inner">
+            <h3>فلترة احترافية</h3>
+
+            <div className="filter-group">
+              <label htmlFor="filter-min-price">السعر من</label>
+              <input
+                id="filter-min-price"
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="0"
+                value={minPriceFilter}
+                onChange={(event) => setMinPriceFilter(event.target.value)}
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="filter-max-price">السعر إلى</label>
+              <input
+                id="filter-max-price"
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="1000"
+                value={maxPriceFilter}
+                onChange={(event) => setMaxPriceFilter(event.target.value)}
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="filter-category">الفئة</label>
+              <select
+                id="filter-category"
+                value={activeCategory}
+                onChange={(event) => setActiveCategory(event.target.value)}
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="filter-min-rating">التقييم</label>
+              <select
+                id="filter-min-rating"
+                value={minRatingFilter}
+                onChange={(event) => setMinRatingFilter(event.target.value)}
+              >
+                <option value="0">الكل</option>
+                <option value="4.5">4.5+ نجوم</option>
+                <option value="4">4+ نجوم</option>
+                <option value="3">3+ نجوم</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="filter-brand">الماركة</label>
+              <select
+                id="filter-brand"
+                value={brandFilter}
+                onChange={(event) => setBrandFilter(event.target.value)}
+              >
+                <option value="all">كل الماركات</option>
+                {availableBrands.map((brand) => (
+                  <option key={brand} value={brand}>{brand}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="filter-size">الحجم</label>
+              <select
+                id="filter-size"
+                value={sizeFilter}
+                onChange={(event) => setSizeFilter(event.target.value)}
+              >
+                <option value="all">كل الأحجام</option>
+                <option value="50ml">50ml</option>
+                <option value="100ml">100ml</option>
+              </select>
+            </div>
+
+            <div className="quick-filters" role="region" aria-label="تجميعات سريعة">
+              <button className={`quick-filter-btn ${activeQuickFilter === 'best-seller' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'best-seller' ? '' : 'best-seller')}>🔥 الأكثر مبيعاً</button>
+              <button className={`quick-filter-btn ${activeQuickFilter === 'new' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'new' ? '' : 'new')}>🆕 وصل حديثاً</button>
+              <button className={`quick-filter-btn ${activeQuickFilter === 'curated' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'curated' ? '' : 'curated')}>👑 مختارات خاصة</button>
+              <button className={`quick-filter-btn ${activeQuickFilter === 'limited' ? 'active' : ''}`} onClick={() => setActiveQuickFilter(activeQuickFilter === 'limited' ? '' : 'limited')}>💎 إصدار محدود</button>
+            </div>
+          </div>
+        </aside>
+
+        <section className="shop-list-area">
+          <div className="categories-tabs shop-categories-tabs" aria-label="فئات المنتجات">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                className={`category-tab shop-category-tab ${activeCategory === cat.id ? 'active' : ''}`}
+                onClick={(event) => handleCategorySelect(cat.id, event)}
+              >
+                <span className="cat-icon">{cat.icon}</span>
+                <span>{cat.name}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="perfumes-grid">
         {sortedPerfumes.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">🔍</div>
@@ -424,13 +636,28 @@ export default function Shop() {
             const discountedPrice = perfume.discount > 0 
               ? perfume.price * (1 - perfume.discount / 100) 
               : perfume.price;
+            const savingsAmount = perfume.discount > 0 ? (perfume.price - discountedPrice) : 0
+            const purchasedCount = Number(perfume.purchasedCount || 0)
+            const isBestSeller = Number(perfume.purchasedCount || 0) >= 10
+            const isNewArrival = Number(perfume.id || 0) >= newestIdThreshold
+            const isLowStock = Number(perfume.stock ?? 0) > 0 && Number(perfume.stock ?? 0) <= 3
             const delayClass = `shop-card-delay-${(index % 8) + 1}`
+            const sizeSummary = Array.isArray(perfume.sizes) && perfume.sizes.length > 0
+              ? perfume.sizes.join(' / ')
+              : '50ml / 100ml'
+            const categoryLabel = categoryNameById[perfume.category] || 'منتج متنوع'
+            const miniDetails = `${categoryLabel} • ${sizeSummary}`
             
             return (
             <div 
               key={perfume.id} 
               className={`perfume-card shop-product-card ${delayClass}`}
             >
+              <div className="shop-card-top-badges" aria-label="مؤشرات المنتج">
+                {isBestSeller && <span className="shop-card-top-badge badge-hot">🔥 الأكثر مبيعاً</span>}
+                {isLowStock && <span className="shop-card-top-badge badge-stock">باقي {perfume.stock} قطع فقط</span>}
+                {purchasedCount > 0 && <span className="shop-card-top-badge badge-sales">تم شراءه {purchasedCount} مرة</span>}
+              </div>
               {perfume.imageUrl && (
                 <div className="perfume-image" role="group" aria-label={`${perfume.name} - ${perfume.brand}`}>
                   <Image
@@ -451,9 +678,23 @@ export default function Shop() {
                     placeholder="blur"
                     blurDataURL={BLUR_DATA_URL}
                   />
-                  {/* Quick actions removed for cleaner card (see design) */}
+                  <button
+                    type="button"
+                    className="shop-quick-btn"
+                    onClick={() => openProductDetails(perfume)}
+                    onKeyDown={(event) => handleKeyboardActivate(event, () => openProductDetails(perfume))}
+                    aria-label={`عرض سريع ${perfume.name}`}
+                  >
+                    عرض سريع
+                  </button>
                   {(perfume.stock ?? 0) <= 0 && (
                     <span className="badge shop-soldout-badge">نفد</span>
+                  )}
+
+                  {((perfume.stock ?? 0) > 0 && (isBestSeller || isNewArrival)) && (
+                    <span className="badge shop-product-badge">
+                      {isBestSeller ? 'الأكثر مبيعاً' : 'جديد'}
+                    </span>
                   )}
 
                   {/* Single badge: prefer discount, then limited edition */}
@@ -465,7 +706,7 @@ export default function Shop() {
                       return (
                         <span className="badge sale-badge shop-discount-corner">
                           <span className="shop-discount-icon" aria-hidden>🏷</span>
-                          <span className="shop-discount-value">-{perfume.discount}%</span>
+                          <span className="shop-discount-value">خصم {perfume.discount}%</span>
                         </span>
                       )
                     }
@@ -523,61 +764,7 @@ export default function Shop() {
                     )}
                   </div>
 
-                  <div className="product-meta-row">
-                    <div className="size-options" role="group" aria-label="حجم المنتج">
-                      {Array.isArray(perfume.sizes) && perfume.sizes.length > 0 ? (
-                        perfume.sizes.map((s) => (
-                          <button key={s} type="button" className="size-chip" onClick={(e) => e.stopPropagation()}>{s}</button>
-                        ))
-                      ) : (
-                        <div className="size-chip mute">50ml / 100ml</div>
-                      )}
-                    </div>
-
-                    <div className="card-actions">
-                      <Link href={`/shop/product/${perfume.id}`} className="link-details">تفاصيل</Link>
-                      <button
-                        type="button"
-                        className={`wishlist-btn ${isInWishlist(perfume.id) ? 'in' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); handleToggleWishlist(perfume) }}
-                        aria-pressed={isInWishlist(perfume.id) ? 'true' : 'false'}
-                        title={isInWishlist(perfume.id) ? 'إزالة من المفضلة' : 'حفظ في المفضلة'}
-                      >
-                        {isInWishlist(perfume.id) ? '❤️' : '🤍'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Rating (immediately under title) */}
-                  {(() => {
-                    const rating = Number((perfume.averageRating ?? perfume.rating) ?? 0)
-                    const reviews = Number((perfume.reviewsCount ?? perfume.reviewCount ?? (perfume.reviews ? perfume.reviews.length : 0)) || 0)
-                    const filled = Math.round(Math.max(0, Math.min(5, rating)))
-                    return (
-                      <>
-                        {rating > 0 && (
-                          <div className="rating-row" aria-label={`تقييم ${rating} من 5`}>
-                            <div className="stars" aria-hidden>
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <span key={i} className={`star ${i < filled ? 'filled' : ''}`}>★</span>
-                              ))}
-                            </div>
-                            <div className="rating-value">{Number(rating).toFixed(1)}</div>
-                            {reviews > 0 && <div className="review-count">({reviews})</div>}
-                          </div>
-                        )}
-
-                        {(perfume.purchasedCount ?? 0) > 0 && (
-                          <div className="purchase-count">
-                            {`تم شراء هذا المنتج ${perfume.purchasedCount} مرة`}
-                          </div>
-                        )}
-                      </>
-                    )
-                  })()}
-
-                  {/* Category */}
-                  <p className="brand shop-category-line">{categoryNameById[perfume.category] || 'منتج متنوع'}</p>
+                  <p className="shop-card-mini-details">{miniDetails}</p>
 
                   {/* Price hierarchy: primary large bold, old small strikethrough */}
                   <div className="price-section">
@@ -587,11 +774,14 @@ export default function Shop() {
                         <div className="price-old small-old"><span className="price-value">{perfume.price.toFixed(2)}</span> <span className="currency">{currencySymbol}</span></div>
                       )}
                     </div>
+                    {savingsAmount > 0 && (
+                      <div className="shop-savings-text">وفر {savingsAmount.toFixed(2)} {currencySymbol}</div>
+                    )}
                   </div>
 
                   {/* Full-width black CTA */}
                   <button 
-                    className="btn-full-black"
+                    className="btn-full-black hover-cart-cta"
                     onClick={() => handleAddToCart(perfume)}
                     disabled={maintenanceMode || (perfume.stock ?? 0) <= 0}
                     aria-label={maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? 'أضف إلى السلة' : 'غير متوفر')}
@@ -603,6 +793,8 @@ export default function Shop() {
             );
           })
         )}
+          </div>
+        </section>
       </div>
     </main>
   )

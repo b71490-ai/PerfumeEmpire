@@ -3,13 +3,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { fetchPerfumes, fetchStoreSettings } from '@/lib/api'
+import { fetchPerfumes, fetchPerfumeReviews, fetchStoreSettings } from '@/lib/api'
 import Hero from '@/components/Hero'
 import { BLUR_DATA_URL, isOptimizableImageSrc, resolveImageSrc } from '@/lib/imagePlaceholders'
 import { trackLandingInteraction, trackSelectPromotion, trackViewPromotion } from '@/lib/analytics'
 
 const FEATURED_SORT_STORAGE_KEY = 'home_featured_sort'
 const VALID_FEATURED_SORTS = ['discount', 'newest', 'price-low']
+const BRAND_COLORS = {
+  deepGreen: '#0b3d2e',
+  pine: '#145a32',
+  gold: '#c6a75e',
+  cream: '#f8f3e6'
+}
 
 const normalizeFeaturedSort = (value) => (VALID_FEATURED_SORTS.includes(value) ? value : 'discount')
 
@@ -26,6 +32,7 @@ export default function Home() {
     freeShippingThreshold: 500
   })
   const [featuredProducts, setFeaturedProducts] = useState([])
+  const [realTestimonials, setRealTestimonials] = useState([])
   const [featuredSort, setFeaturedSort] = useState('discount')
   const [isFeaturedSortReady, setIsFeaturedSortReady] = useState(false)
 
@@ -101,6 +108,38 @@ export default function Home() {
             .slice(0, 4)
 
           setFeaturedProducts(sortedFeatured)
+
+          const reviewCandidates = [...perfumes]
+            .filter((item) => item && item.id && Number(item.reviewsCount || 0) > 0)
+            .sort((a, b) => Number(b.reviewsCount || 0) - Number(a.reviewsCount || 0))
+            .slice(0, 6)
+
+          if (reviewCandidates.length > 0) {
+            const reviewsByProduct = await Promise.all(
+              reviewCandidates.map(async (item) => {
+                try {
+                  const result = await fetchPerfumeReviews(item.id)
+                  return { item, reviews: Array.isArray(result) ? result : [] }
+                } catch {
+                  return { item, reviews: [] }
+                }
+              })
+            )
+
+            const normalizedReviews = reviewsByProduct
+              .flatMap(({ item, reviews }) => reviews
+                .filter((review) => review && String(review.comment || '').trim())
+                .map((review) => ({
+                  name: review.customerName || 'عميل موثق',
+                  rating: Math.max(1, Math.min(5, Number(review.rating || 5))),
+                  text: String(review.comment || '').trim(),
+                  productName: item.name || 'منتج مميز',
+                  createdAt: review.createdAt || null
+                })))
+              .slice(0, 3)
+
+            setRealTestimonials(normalizedReviews)
+          }
         }
       } catch {
         // keep defaults
@@ -194,6 +233,8 @@ export default function Home() {
     }
   ]
 
+  const displayedTestimonials = realTestimonials.length > 0 ? realTestimonials : testimonials
+
   const offers = useMemo(() => ([
     {
       id: 'women_50_off',
@@ -233,6 +274,50 @@ export default function Home() {
     <main className="landing-page">
       {/* Hero Section */}
       <Hero storeInfo={storeInfo} />
+
+      <section className="brand-identity-strip" aria-label="هوية العلامة التجارية">
+        <div className="brand-identity-strip__inner">
+          <div className="brand-mark" style={{ background: `linear-gradient(135deg, ${BRAND_COLORS.deepGreen} 0%, ${BRAND_COLORS.pine} 100%)` }}>
+            <span className="brand-mark__icon">{storeInfo.logoIcon || '✨'}</span>
+            <div>
+              <strong>{storeInfo.logoText || storeInfo.storeName}</strong>
+              <small>هوية عطرية راقية</small>
+            </div>
+          </div>
+          <div className="brand-palette" aria-hidden="true">
+            <span style={{ background: BRAND_COLORS.deepGreen }} />
+            <span style={{ background: BRAND_COLORS.pine }} />
+            <span style={{ background: BRAND_COLORS.gold }} />
+            <span style={{ background: BRAND_COLORS.cream, border: '1px solid rgba(0,0,0,0.08)' }} />
+          </div>
+        </div>
+      </section>
+
+      <section className="why-us-section">
+        <div className="section-header-enhanced">
+          <span className="section-badge">لماذا نحن؟</span>
+          <h2 className="section-title-enhanced">الفرق الذي يميّز تجربتك معنا</h2>
+          <p className="section-description-enhanced">نقدّم لك تجربة شراء متكاملة، موثوقة، وسريعة من لحظة الاختيار حتى الاستلام.</p>
+        </div>
+        <div className="why-us-grid">
+          <article className="why-us-card">
+            <h3>منتجات أصلية</h3>
+            <p>كل المنتجات لدينا موثقة المصدر مع ضمان جودة كامل.</p>
+          </article>
+          <article className="why-us-card">
+            <h3>توصيل سريع</h3>
+            <p>شحن موثوق داخل المملكة مع تتبع مباشر لحالة الطلب.</p>
+          </article>
+          <article className="why-us-card">
+            <h3>أسعار منافسة</h3>
+            <p>عروض مستمرة وأسعار مدروسة على أفضل العلامات.</p>
+          </article>
+          <article className="why-us-card">
+            <h3>دعم احترافي</h3>
+            <p>فريق خدمة عملاء جاهز للرد ومتابعة طلبك بسرعة.</p>
+          </article>
+        </div>
+      </section>
 
       {/* Special Offers */}
       <section className="offers-section">
@@ -487,13 +572,13 @@ export default function Home() {
         <div className="section-header-enhanced">
           <span className="section-badge">💎 آراء العملاء</span>
           <h2 className="section-title-enhanced">ماذا يقول عملاؤنا</h2>
-          <p className="section-description-enhanced">آلاف العملاء السعداء حول العالم</p>
+          <p className="section-description-enhanced">تقييمات حقيقية من تجربة الشراء الفعلية داخل المتجر</p>
         </div>
         <div className="testimonials-grid">
-          {testimonials.map((testimonial, index) => (
+          {displayedTestimonials.map((testimonial, index) => (
             <div key={index} className={`testimonial-card home-delay-${index + 1}`}>
               <div className="testimonial-header">
-                <div className="testimonial-avatar">{testimonial.avatar}</div>
+                <div className="testimonial-avatar">{testimonial.avatar || '👤'}</div>
                 <div className="testimonial-info">
                   <h4 className="testimonial-name">{testimonial.name}</h4>
                   <div className="testimonial-rating">
@@ -501,6 +586,9 @@ export default function Home() {
                       <span key={i} className="star">⭐</span>
                     ))}
                   </div>
+                  {testimonial.productName && (
+                    <div className="testimonial-product-name">عن: {testimonial.productName}</div>
+                  )}
                 </div>
               </div>
               <p className="testimonial-text">&ldquo;{testimonial.text}&rdquo;</p>
@@ -548,6 +636,7 @@ export default function Home() {
           <p className="footer-text">{storeInfo.storeTagline || 'وجهتك الأولى للعطور الفاخرة والأصلية'}</p>
           <div className="footer-links">
             <Link href="/policies/shipping-returns">سياسة الشحن والاسترجاع</Link>
+            <Link href="/about">عن المتجر</Link>
             <Link href="/contact">التواصل والدعم</Link>
             <Link href="/track-order">تتبع الطلب</Link>
           </div>

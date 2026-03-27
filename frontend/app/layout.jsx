@@ -5,6 +5,7 @@ import ThemeProvider from '../components/ThemeProvider'
 import { Cairo } from 'next/font/google'
 import { CartProvider } from '../context/CartContext'
 import { AdminProvider } from '../context/AdminContext'
+import AdsBar from '../components/AdsBar'
 import Header from '../components/Header'
 import StoreNotice from '../components/StoreNotice'
 import WebVitalsReporter from '../components/WebVitalsReporter'
@@ -275,6 +276,7 @@ t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, d
           <CartProvider>
             <ThemeProvider>
               <WebVitalsReporter />
+              <AdsBar />
               <Header />
               <StoreNotice />
               {children}

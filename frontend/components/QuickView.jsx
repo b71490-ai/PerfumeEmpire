@@ -1,7 +1,6 @@
 "use client"
 
 import Image from 'next/image'
-import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export default function QuickView({ perfume, onClose, onAddToCart, currencySymbol = 'ر.س' }) {
@@ -145,9 +144,6 @@ export default function QuickView({ perfume, onClose, onAddToCart, currencySymbo
               >
                 🛒 أضف إلى السلة
               </button>
-              <Link className="quickview-btn quickview-btn-secondary" href={`/shop/product/${perfume.id}`}>
-                عرض الصفحة الكاملة
-              </Link>
             </div>
           </div>
         </div>

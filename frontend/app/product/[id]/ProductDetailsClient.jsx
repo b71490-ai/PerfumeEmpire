@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { getPerfumeById, deletePerfume, fetchPerfumeReviews, createPerfumeReview, fetchStoreSettings } from '@/lib/api'
+import { fetchPerfumes, getPerfumeById, deletePerfume, fetchPerfumeReviews, createPerfumeReview, fetchStoreSettings } from '@/lib/api'
 import { useCart } from '@/context/CartContext'
 import { useAdmin } from '@/context/AdminContext'
 import { BLUR_DATA_URL, isOptimizableImageSrc, resolveImageSrc } from '@/lib/imagePlaceholders'
@@ -20,11 +20,14 @@ export default function ProductDetailsClient({ productId }) {
   const [selectedQuantity, setSelectedQuantity] = useState(1)
   const [toast, setToast] = useState(null)
   const [reviews, setReviews] = useState([])
+  const [similarProducts, setSimilarProducts] = useState([])
   const [reviewForm, setReviewForm] = useState({ customerName: '', rating: 5, comment: '' })
   const [submittingReview, setSubmittingReview] = useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [currencySymbol, setCurrencySymbol] = useState('ر.س')
   const [currencyCode, setCurrencyCode] = useState('SAR')
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(500)
+  const [showBottomBuyBar, setShowBottomBuyBar] = useState(false)
   const lastTrackedProductIdRef = useRef(null)
   const locale = getUserLocale('ar-SA')
 
@@ -33,13 +36,25 @@ export default function ProductDetailsClient({ productId }) {
   useEffect(() => {
     const loadPerfume = async () => {
       try {
-        const [data, reviewData, settingsData] = await Promise.all([
+        const [data, reviewData, settingsData, productsData] = await Promise.all([
           getPerfumeById(productId),
           fetchPerfumeReviews(productId),
-          fetchStoreSettings()
+          fetchStoreSettings(),
+          fetchPerfumes()
         ])
         setPerfume(data)
         setReviews(reviewData || [])
+        const allProducts = Array.isArray(productsData) ? productsData : []
+        const related = allProducts
+          .filter((item) => item && String(item.id) !== String(productId))
+          .sort((a, b) => {
+            const sameCategoryA = a.category === data?.category ? 1 : 0
+            const sameCategoryB = b.category === data?.category ? 1 : 0
+            if (sameCategoryA !== sameCategoryB) return sameCategoryB - sameCategoryA
+            return Number(b.purchasedCount || 0) - Number(a.purchasedCount || 0)
+          })
+          .slice(0, 4)
+        setSimilarProducts(related)
         if (settingsData) {
           setCurrencySymbol(settingsData.currencySymbol || 'ر.س')
           setCurrencyCode(settingsData.currencyCode || 'SAR')
@@ -66,6 +81,16 @@ export default function ProductDetailsClient({ productId }) {
     trackViewItem({ item: perfume, currency: currencyCode })
     lastTrackedProductIdRef.current = perfume.id
   }, [perfume, currencyCode])
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowBottomBuyBar(window.scrollY > 460)
+    }
+
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const handleDelete = async () => {
     if (confirm(`هل أنت متأكد من حذف "${perfume.name}"؟`)) {
@@ -179,7 +204,20 @@ export default function ProductDetailsClient({ productId }) {
   const finalPrice = perfume.discount > 0
     ? perfume.price - (perfume.price * perfume.discount / 100)
     : perfume.price
-  const safeImageSrc = resolveImageSrc(perfume.imageUrl)
+
+  const gallerySources = (() => {
+    const candidates = [
+      perfume.imageUrl,
+      perfume.image,
+      ...(Array.isArray(perfume.images) ? perfume.images : []),
+      ...(Array.isArray(perfume.imageUrls) ? perfume.imageUrls : []),
+      ...(Array.isArray(perfume.galleryImages) ? perfume.galleryImages : []),
+      ...(Array.isArray(perfume.gallery) ? perfume.gallery : [])
+    ]
+    const unique = [...new Set(candidates.map((item) => String(item || '').trim()).filter(Boolean))]
+    return unique.length > 0 ? unique : ['']
+  })()
+  const selectedImageSrc = resolveImageSrc(gallerySources[selectedImageIndex] || perfume.imageUrl)
 
   const categoryNames = {
     men: 'عطور رجالي',
@@ -234,13 +272,13 @@ export default function ProductDetailsClient({ productId }) {
         <div className="product-image-section">
           <div className="product-image-wrapper">
             <Image
-              src={safeImageSrc}
+              src={selectedImageSrc}
               alt={perfume.name}
               className="product-main-image"
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
               priority
-              unoptimized={!isOptimizableImageSrc(safeImageSrc)}
+              unoptimized={!isOptimizableImageSrc(selectedImageSrc)}
               placeholder="blur"
               blurDataURL={BLUR_DATA_URL}
             />
@@ -257,6 +295,32 @@ export default function ProductDetailsClient({ productId }) {
               {isInWishlist(perfume.id) ? '❤️' : '🤍'}
             </button>
           </div>
+
+          {gallerySources.length > 1 && (
+            <div className="product-gallery" aria-label="معرض صور المنتج">
+              {gallerySources.map((src, index) => {
+                const resolved = resolveImageSrc(src)
+                return (
+                  <button
+                    key={`${resolved}-${index}`}
+                    type="button"
+                    className={`product-gallery-thumb ${selectedImageIndex === index ? 'active' : ''}`}
+                    onClick={() => setSelectedImageIndex(index)}
+                    aria-label={`عرض الصورة رقم ${index + 1}`}
+                  >
+                    <Image
+                      src={resolved}
+                      alt={`${perfume.name} - ${index + 1}`}
+                      width={96}
+                      height={96}
+                      unoptimized={!isOptimizableImageSrc(resolved)}
+                      className="product-gallery-thumb-image"
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="product-info-section">
@@ -302,6 +366,9 @@ export default function ProductDetailsClient({ productId }) {
               {' '}
               {categoryDescriptions[perfume.category] || 'تركيبة مختارة بعناية لتناسب ذوقك.'}
             </p>
+            <p>
+              رائحة مصممة لتمنحك حضوراً لافتاً وثباتاً يدوم لساعات طويلة، مع توازن احترافي بين المكونات العليا والقلب والقاعدة.
+            </p>
           </div>
 
           <div className="product-features">
@@ -345,9 +412,9 @@ export default function ProductDetailsClient({ productId }) {
           </div>
 
           <div className="product-actions">
-            <button onClick={handleAddToCart} className="btn-add-to-cart" disabled={maintenanceMode || (perfume.stock ?? 0) <= 0}>
+            <button onClick={handleAddToCart} className="btn-add-to-cart btn-buy-primary-large" disabled={maintenanceMode || (perfume.stock ?? 0) <= 0}>
               <span>🛒</span>
-              <span>{maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? 'إضافة إلى السلة' : 'غير متوفر')}</span>
+              <span>{maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? 'اشتر الآن' : 'غير متوفر')}</span>
             </button>
             <button onClick={handleToggleWishlist} className="btn-wishlist-action">
               <span>{isInWishlist(perfume.id) ? '❤️' : '🤍'}</span>
@@ -421,7 +488,10 @@ export default function ProductDetailsClient({ productId }) {
             ) : (
               reviews.map((review) => (
                 <div key={review.id} className="review-item">
-                  <strong>{review.customerName}</strong>
+                  <div className="review-headline-row">
+                    <strong>{review.customerName}</strong>
+                    <span className="review-verified">شراء موثق</span>
+                  </div>
                   <div className="review-stars">{'⭐'.repeat(Number(review.rating || 0))}</div>
                   {review.comment && <p>{review.comment}</p>}
                   <small className="review-date">{formatDate(review.createdAt, { locale })}</small>
@@ -429,8 +499,66 @@ export default function ProductDetailsClient({ productId }) {
               ))
             )}
           </div>
+
+          {similarProducts.length > 0 && (
+            <div className="product-description product-reviews-section similar-products-section">
+              <h2>منتجات مشابهة</h2>
+              <div className="similar-products-grid">
+                {similarProducts.map((item) => {
+                  const itemPrice = Number(item.discount || 0) > 0
+                    ? Number(item.price || 0) * (1 - Number(item.discount || 0) / 100)
+                    : Number(item.price || 0)
+                  const itemImage = resolveImageSrc(item.imageUrl)
+
+                  return (
+                    <article key={item.id} className="similar-product-card">
+                      <button
+                        type="button"
+                        className="similar-product-image-btn"
+                        onClick={() => router.push(`/shop/product/${item.id}`)}
+                        aria-label={`عرض تفاصيل ${item.name}`}
+                      >
+                        <Image
+                          src={itemImage}
+                          alt={item.name}
+                          width={260}
+                          height={180}
+                          className="similar-product-image"
+                          unoptimized={!isOptimizableImageSrc(itemImage)}
+                        />
+                      </button>
+                      <h3>{item.name}</h3>
+                      <p>{item.brand}</p>
+                      <div className="similar-product-price">{itemPrice.toFixed(2)} {currencySymbol}</div>
+                      <div className="similar-product-actions">
+                        <Link href={`/shop/product/${item.id}`} className="similar-link">تفاصيل</Link>
+                        <button type="button" onClick={() => addToCart(item)} className="similar-add-btn">أضف للسلة</button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {showBottomBuyBar && (
+        <div className="floating-buy-bar" role="region" aria-label="شراء سريع">
+          <div className="floating-buy-bar__meta">
+            <strong className="floating-buy-bar__name">{perfume.name}</strong>
+            <span className="floating-buy-bar__price">{finalPrice.toFixed(2)} {currencySymbol}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            className="floating-buy-bar__btn"
+            disabled={maintenanceMode || (perfume.stock ?? 0) <= 0}
+          >
+            {maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? 'اشتر الآن' : 'غير متوفر')}
+          </button>
+        </div>
+      )}
     </main>
   )
 }

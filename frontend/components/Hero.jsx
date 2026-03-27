@@ -10,7 +10,7 @@ export default function Hero({ storeInfo }) {
   const info = useMemo(() => ({
     name: storeInfo?.storeName || 'عطور الإمبراطورية',
     tagline: storeInfo?.storeTagline || 'وجهتك الأولى للعطور الفاخرة',
-    heroImage: storeInfo?.heroImageUrl || storeInfo?.logoImageUrl || 'https://images.unsplash.com/photo-1519985176271-adb1088fa94c?w=1200&auto=format&fm=webp&q=75',
+    heroImage: storeInfo?.heroImageUrl || storeInfo?.logoImageUrl || 'https://images.unsplash.com/photo-1519985176271-adb1088fa94c?w=960&auto=format&fm=webp&q=68',
   }), [storeInfo])
 
   useEffect(() => {
@@ -22,11 +22,18 @@ export default function Hero({ storeInfo }) {
       <div className="hero-strong__inner">
         <div className="hero-strong__content">
           <div className="hero-strong__eyebrow">مجموعة مختارة</div>
-          <h1 className="hero-strong__title">الفخامة تبدأ من عطرك</h1>
-          <p className="hero-strong__subtitle">Discover Your Signature Scent</p>
+          <h1 className="hero-strong__title">
+            أفضل عطور <span className="hero-strong__title-highlight">فاخرة ✨</span>
+          </h1>
           <Link href="/shop" className="hero-strong__cta" onClick={() => trackLandingInteraction({ action: 'hero_cta', label: 'shop_now', section: 'hero' })}>
-            تسوّق الآن
+            تسوق الآن →
           </Link>
+          
+          <div className="hero-strong__trust-indicators">
+            <div className="trust-indicator">✔ شحن سريع</div>
+            <div className="trust-indicator">✔ دفع آمن</div>
+            <div className="trust-indicator">✔ ضمان الأصالة</div>
+          </div>
         </div>
 
         <div className="hero-strong__media" aria-hidden="false">
@@ -49,16 +56,17 @@ export default function Hero({ storeInfo }) {
               try { e.currentTarget.style.setProperty('--mx', '0'); e.currentTarget.style.setProperty('--my', '0') } catch { }
             }}
           >
-            <div className="hero-strong__img-bg animated-hero-logo-bg" style={{ backgroundColor: storeInfo?.logoBackgroundColor || 'transparent', borderRadius: 12, padding: 12 }}>
+            <div className="hero-strong__img-wrap">
               <Image
                 src={info.heroImage}
                 alt={info.name}
-                width={900}
-                height={900}
+                width={640}
+                height={640}
                 className="hero-strong__img"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 60vw, 42vw"
+                sizes="(max-width: 768px) 90vw, 360px"
                 priority
                 fetchPriority="high"
+                quality={72}
                 placeholder="blur"
                 blurDataURL={BLUR_DATA_URL}
               />
