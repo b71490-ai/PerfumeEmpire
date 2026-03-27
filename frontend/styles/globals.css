@@ -335,8 +335,8 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
 
 /* Hide any logo image/icon site-wide when requested */
 .site-small-logo {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: inline-block;
   object-fit: contain;
   border-radius: 10px;
@@ -1029,6 +1029,26 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
   background: linear-gradient(90deg, var(--brand-gold) 0%, #F6D58A 100%);
   box-shadow: 0 6px 14px rgba(198,167,94,0.12);
   transition: width 320ms cubic-bezier(.2,.9,.2,1);
+}
+
+.header-free-shipping {
+  width: 100%;
+}
+
+.header-free-shipping .free-shipping-progress {
+  margin: 4px 0 0;
+}
+
+.header-free-shipping .free-shipping-progress .fsp-message {
+  font-size: 0.9rem;
+}
+
+.header-free-shipping .free-shipping-progress .fsp-row {
+  margin-bottom: 4px;
+}
+
+.header-free-shipping .free-shipping-progress .fsp-bar {
+  height: 8px;
 }
 
 @media (max-width: 640px) {
@@ -2032,9 +2052,9 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
 
 /* Modern Header Styles */
 .main-header {
-  --admin-header-height: 96px; /* used by sidebar to offset itself */
+  --admin-header-height: 56px; /* used by sidebar to offset itself */
   background: var(--brand-black);
-  padding: 0.6rem 0;
+  padding: 0.25rem 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
   position: relative;
   border-bottom: 1px solid rgba(198,167,94,0.12);
@@ -2059,7 +2079,7 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
   gap: 0.5rem;
   text-decoration: none;
   color: white;
-  font-size: 1.6rem; /* reduced for a more balanced header */
+  font-size: 1.3rem; /* reduced for a more balanced header */
   font-weight: 800;
   transition: transform 0.22s ease;
 }
@@ -2085,7 +2105,7 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
 
 /* Make the textual title more prominent and balanced with the icon */
 .header-logo .header-title {
-  font-size: 1.9rem;
+  font-size: 1.5rem;
   line-height: 1;
   margin: 0;
   padding: 0;
@@ -2095,7 +2115,7 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
 
 /* Header overall spacing for a more premium look */
 .main-header {
-  padding: 1rem 0;
+  padding: 0.3rem 0;
 }
 
 /* Nav item styling: compact pills with subtle contrast */
@@ -2129,9 +2149,9 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
 
 /* Responsive tweaks */
 @media (max-width: 768px) {
-  .header-container { flex-direction: column; gap: 0.4rem; padding: 0 1rem; }
-  .header-logo { font-size: 1.6rem }
-  .header-logo .header-title { font-size: 1.6rem }
+  .header-container { flex-direction: row; flex-wrap: wrap; gap: 0.3rem; padding: 0 0.8rem; align-items: center; justify-content: space-between; }
+  .header-logo { font-size: 1.2rem }
+  .header-logo .header-title { font-size: 1.4rem }
   .logo-icon { width: 46px; height: 46px; font-size: 1.2rem }
   .header-nav { width: 100%; justify-content: center; overflow: visible; white-space: normal; }
   .header-nav .nav-item { padding: 0.45rem 0.8rem; }
@@ -7514,9 +7534,11 @@ html, body { /* guard: prevent overlay from creating horizontal scroll */
 
 @media (max-width: 992px) {
   .header-container {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .header-logo {
@@ -7526,7 +7548,7 @@ html, body { /* guard: prevent overlay from creating horizontal scroll */
   .header-nav {
     justify-content: center;
     flex-wrap: wrap;
-    gap: 0.7rem;
+    gap: 0.45rem;
   }
 
   .header-section {
@@ -7580,7 +7602,7 @@ html, body { /* guard: prevent overlay from creating horizontal scroll */
     width: 100%;
     overflow-x: auto;
     justify-content: flex-start;
-    padding-bottom: 0.25rem;
+    padding-bottom: 0.15rem;
   }
 
   .nav-item {
@@ -14456,6 +14478,104 @@ html {
 .about-btn-secondary {
   color: #0f172a;
   background: #e2e8f0;
+}
+
+/* Final compact header override across all pages (mobile/tablet) */
+@media (max-width: 992px) {
+  .main-header {
+    --admin-header-height: 52px !important;
+    min-height: 52px !important;
+    padding: 0.22rem 0 !important;
+  }
+
+  .main-header .header-container {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.3rem !important;
+    padding: 0 0.72rem !important;
+  }
+
+  .main-header .header-logo .header-title {
+    font-size: 1.22rem !important;
+    line-height: 1.02 !important;
+  }
+
+  .main-header .site-small-logo,
+  .main-header .site-small-logo-fallback {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+  }
+
+  .main-header .header-user-icon {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .main-header .header-nav {
+    width: 100% !important;
+    order: 3 !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    justify-content: flex-start !important;
+    gap: 0.32rem !important;
+    padding: 0.05rem 0.1rem !important;
+  }
+
+  .main-header .header-nav .nav-item {
+    flex: 0 0 auto !important;
+    padding: 0.34rem 0.56rem !important;
+    border-radius: 13px !important;
+    font-size: 0.9rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .main-header .header-nav .nav-item span:first-child {
+    font-size: 1rem !important;
+  }
+
+  .main-header .header-free-shipping {
+    width: 100% !important;
+    order: 4 !important;
+  }
+
+  .main-header .header-free-shipping .free-shipping-progress {
+    margin: 2px 0 0 !important;
+  }
+
+  .main-header .header-free-shipping .fsp-row {
+    margin-bottom: 3px !important;
+    gap: 6px !important;
+  }
+
+  .main-header .header-free-shipping .fsp-message {
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .main-header .header-free-shipping .fsp-bar {
+    height: 6px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-header .header-logo .header-title {
+    font-size: 1.06rem !important;
+  }
+}
+
+/* Hide free-shipping progress on shop page only */
+.shop-page--shein .free-shipping-progress,
+.shop-page--shein .header-free-shipping,
+.shop-page--shein .fsp-row,
+.shop-page--shein .fsp-bar,
+.shop-page--shein .fsp-fill {
+  display: none !important;
 }
 
 

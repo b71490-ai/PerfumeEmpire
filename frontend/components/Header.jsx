@@ -3,27 +3,22 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
-import FreeShippingProgress from '@/components/FreeShippingProgress'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useAdmin } from '@/context/AdminContext'
 import { fetchStoreSettings } from '@/lib/api'
 
 export default function Header() {
-  const { getCartCount, getCartTotal } = useCart()
+  const { getCartCount } = useCart()
   const { isAdmin } = useAdmin()
   const cartCount = getCartCount()
   const [cartBadgeBump, setCartBadgeBump] = useState(false)
-  const pathname = usePathname()
   const isDataImage = (value) => typeof value === 'string' && value.startsWith('data:image/')
   const [settings, setSettings] = useState({
     logoIcon: '✨',
     logoText: 'عطور الإمبراطورية',
     logoImageUrl: '',
-    logoBackgroundColor: '#ffffff',
-    freeShippingThreshold: 500,
-    currencySymbol: 'ر.س'
+    logoBackgroundColor: '#ffffff'
   })
 
   useEffect(() => {
@@ -35,9 +30,7 @@ export default function Header() {
             logoIcon: data.logoIcon || '✨',
             logoText: data.logoText || data.storeName || 'عطور الإمبراطورية',
             logoImageUrl: data.logoImageUrl || '',
-            logoBackgroundColor: data.logoBackgroundColor || '#ffffff',
-            freeShippingThreshold: Number(data.freeShippingThreshold ?? 500),
-            currencySymbol: data.currencySymbol || 'ر.س'
+            logoBackgroundColor: data.logoBackgroundColor || '#ffffff'
           })
         }
       } catch {
@@ -56,10 +49,8 @@ export default function Header() {
     return () => clearTimeout(timer)
   }, [cartCount])
 
-  const isHomePage = pathname === '/'
-
   return (
-    <header className={"main-header" + (isHomePage ? ' is-home' : '')}>
+    <header className="main-header">
       <div className="header-container">
         <div className="header-brand">
           <Link href="/" className="header-logo">
@@ -144,11 +135,6 @@ export default function Header() {
             </Link>
           )}
         </nav>
-        {pathname && pathname.startsWith('/shop') && (
-          <div className="header-free-shipping">
-            <FreeShippingProgress subtotal={getCartTotal()} threshold={settings.freeShippingThreshold} currency={settings.currencySymbol} />
-          </div>
-        )}
       </div>
     </header>
   )

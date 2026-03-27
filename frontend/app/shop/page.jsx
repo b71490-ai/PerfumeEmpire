@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { fetchPerfumes, deletePerfume, fetchStoreSettings, searchPerfumesByImage } from '@/lib/api'
-import FreeShippingProgress from '@/components/FreeShippingProgress'
 import SkeletonGrid from '@/components/SkeletonGrid'
 import { useCart } from '@/context/CartContext'
 import { useAdmin } from '@/context/AdminContext'
@@ -141,8 +140,7 @@ export default function Shop() {
     return Math.max(0, maxId - 15)
   }, [perfumes])
   
-  const { addToCart, toggleWishlist, isInWishlist, maintenanceMode, maintenanceMessage, getCartTotal } = useCart()
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState(500)
+  const { addToCart, toggleWishlist, isInWishlist, maintenanceMode, maintenanceMessage } = useCart()
   const [socialProofMessage, setSocialProofMessage] = useState('')
   const [showFirstOrderPopup, setShowFirstOrderPopup] = useState(false)
   const { isAdmin } = useAdmin()
@@ -155,7 +153,6 @@ export default function Shop() {
         if (settings) {
           setCurrencySymbol(settings.currencySymbol || 'ر.س')
           setCurrencyCode(settings.currencyCode || 'SAR')
-          setFreeShippingThreshold(Number(settings.freeShippingThreshold ?? 500))
         }
       } catch (err) {
         setError(err.message)
@@ -470,7 +467,6 @@ export default function Shop() {
         <div className="header-actions">
           <Link href="/" className="btn btn-secondary">🏠 الصفحة الرئيسية</Link>
         </div>
-        <FreeShippingProgress subtotal={getCartTotal()} threshold={freeShippingThreshold} currency={currencySymbol} />
       </div>
 
       <div className="search-container shop-toolbar">
