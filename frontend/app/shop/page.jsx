@@ -732,7 +732,7 @@ export default function Shop() {
                     <span className="badge shop-soldout-badge">نفد</span>
                   )}
 
-                  {((perfume.stock ?? 0) > 0 && (isBestSeller || isNewArrival)) && (
+                  {((perfume.stock ?? 0) > 0 && (isBestSeller || isNewArrival) && Number(perfume.discount ?? 0) <= 0) && (
                     <span className="badge shop-product-badge">
                       {isBestSeller ? 'الأكثر مبيعاً' : 'جديد'}
                     </span>
