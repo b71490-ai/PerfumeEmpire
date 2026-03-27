@@ -13,7 +13,7 @@ const ADS_ITEMS = [
     subtitle: 'تشكيلة مختارة من أفخم المنتجات بأسعار استثنائية لفترة محدودة.',
     href: OFFERS_PAGE_HREF,
     badge: 'HOT',
-    image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&fm=webp&w=1280&q=65'
+    image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=max&fm=webp&w=1280&q=65'
   },
   {
     icon: '🚚',
@@ -21,7 +21,7 @@ const ADS_ITEMS = [
     subtitle: 'اطلب الآن واستمتع بتوصيل سريع ومجاني على الطلبات المؤهلة.',
     href: OFFERS_PAGE_HREF,
     badge: 'عرض',
-    image: 'https://images.unsplash.com/photo-1615634260167-c8cdede054de?auto=format&fit=crop&fm=webp&w=1280&q=65'
+    image: 'https://images.unsplash.com/photo-1615634260167-c8cdede054de?auto=format&fit=max&fm=webp&w=1280&q=65'
   },
   {
     icon: '⭐',
@@ -29,7 +29,7 @@ const ADS_ITEMS = [
     subtitle: 'عطور ومجموعات نخبوية نالت ثقة العملاء بأعلى تقييمات.',
     href: OFFERS_PAGE_HREF,
     badge: 'جديد',
-    image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&fm=webp&w=1280&q=65'
+    image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=max&fm=webp&w=1280&q=65'
   }
 ]
 
@@ -116,7 +116,7 @@ export default function AdsBar() {
             className="ads-image-slide"
             style={{
               backgroundImage: `url(${activeAd.image})`,
-              transform: isSliding ? 'scale(1.12)' : 'scale(1)',
+              transform: isSliding ? 'scale(1.03)' : 'scale(1)',
               opacity: isSliding ? 0 : 1
             }}
           />
@@ -124,7 +124,7 @@ export default function AdsBar() {
             className="ads-image-slide"
             style={{
               backgroundImage: `url(${incomingAd.image})`,
-              transform: isSliding ? 'scale(1)' : 'scale(1.1)',
+              transform: isSliding ? 'scale(1)' : 'scale(1.03)',
               opacity: isSliding ? 1 : 0
             }}
           />
@@ -202,8 +202,10 @@ export default function AdsBar() {
         .ads-image-slide {
           position: absolute;
           inset: 0;
-          background-size: cover;
+          background-size: contain;
           background-position: center;
+          background-repeat: no-repeat;
+          background-color: rgba(12, 20, 18, 0.66);
           filter: brightness(0.74) saturate(0.9);
           transition: transform 520ms ease-in-out, opacity 520ms ease-in-out;
           will-change: transform, opacity;
