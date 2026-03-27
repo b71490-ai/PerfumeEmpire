@@ -75,15 +75,6 @@ export default function Hero({ storeInfo }) {
           </div>
         </div>
       </div>
-      {/* Trust bar under hero for credibility */}
-      <div className="hero-trust-bar" role="contentinfo" aria-label="مزايا المتجر">
-        <div className="hero-trust-bar__inner">
-          <div className="trust-item">🚚 <span><span className="trust-word-white">شحن</span> سريع</span></div>
-          <div className="trust-item">💳 <span>دفع آمن</span></div>
-          <div className="trust-item">🔄 <span>استرجاع خلال 7 أيام</span></div>
-          <div className="trust-item">🔒 <span>منتجات أصلية 100%</span></div>
-        </div>
-      </div>
     </section>
   )
 }

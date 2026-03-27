@@ -277,6 +277,19 @@ t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, d
             <ThemeProvider>
               <WebVitalsReporter />
               <AdsBar />
+              <div className="hero-trust-bar top-trust-strip" role="contentinfo" aria-label="مزايا المتجر">
+                <div className="hero-trust-bar__inner">
+                  <div className="trust-item">🚚 <span><span className="trust-word-white">شحن</span> سريع</span></div>
+                  <div className="trust-item">💳 <span>دفع آمن</span></div>
+                  <div className="trust-item">🔒 <span>منتجات أصلية 100%</span></div>
+                  <div className="trust-item">🔄 <span>استرجاع خلال 7 أيام</span></div>
+
+                  <div className="trust-item trust-item-copy" aria-hidden="true">🚚 <span><span className="trust-word-white">شحن</span> سريع</span></div>
+                  <div className="trust-item trust-item-copy" aria-hidden="true">💳 <span>دفع آمن</span></div>
+                  <div className="trust-item trust-item-copy" aria-hidden="true">🔒 <span>منتجات أصلية 100%</span></div>
+                  <div className="trust-item trust-item-copy" aria-hidden="true">🔄 <span>استرجاع خلال 7 أيام</span></div>
+                </div>
+              </div>
               <Header />
               <StoreNotice />
               {children}

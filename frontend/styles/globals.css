@@ -14064,35 +14064,95 @@ html {
     padding: 4px 0 0 !important;
     background: transparent !important;
     border-top: none !important;
+    overflow: hidden;
   }
 
   .hero-trust-bar__inner {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 14px !important;
     padding: 0 16px 10px !important;
-    align-items: stretch !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: max-content;
+    min-width: 100%;
+    overflow: hidden !important;
+    overflow-y: hidden;
+    animation: heroTrustMarqueeRtl 30s linear infinite;
+    will-change: transform;
   }
 
   .trust-item {
-    width: 100% !important;
-    min-width: 0 !important;
+    width: auto !important;
+    min-width: auto !important;
+    flex: 0 0 auto !important;
     justify-content: center !important;
     text-align: center !important;
-    padding: 12px 8px !important;
-    border-radius: 18px !important;
-    font-size: 0.92rem !important;
-    line-height: 1.3 !important;
-    background: rgba(255, 250, 243, 0.82) !important;
-    color: #4b3721 !important;
-    box-shadow: 0 8px 20px rgba(82, 58, 31, 0.08), inset 0 0 0 1px rgba(198,167,94,0.16) !important;
+    white-space: nowrap;
+    padding: 0 6px !important;
+    border-radius: 0 !important;
+    font-size: 0.98rem !important;
+    line-height: 1.15 !important;
+    background: transparent !important;
+    color: #f4dfb6 !important;
+    box-shadow: none !important;
+  }
+
+  .trust-item + .trust-item::before {
+    content: none;
   }
 
   .trust-item span,
   .trust-word-white {
-    color: #4b3721 !important;
-    -webkit-text-fill-color: #4b3721 !important;
+    color: #f4dfb6 !important;
+    -webkit-text-fill-color: #f4dfb6 !important;
   }
+
+  .trust-item-copy {
+    opacity: 0.98;
+  }
+
+}
+
+@keyframes heroTrustMarqueeRtl {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Final guard: trust strip must stay on a single line on all screens */
+.hero-trust-bar {
+  overflow: hidden;
+}
+
+.top-trust-strip.hero-trust-bar {
+  margin-top: 0 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  border-top: none !important;
+}
+
+.hero-trust-bar__inner {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  width: max-content;
+  min-width: 100%;
+}
+
+.hero-trust-bar .trust-item,
+.hero-trust-bar .trust-item span,
+.hero-trust-bar .trust-word-white {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+
+.hero-trust-bar .trust-item {
+  flex: 0 0 auto !important;
 }
 
 /* Floating bottom buy bar on product page */
