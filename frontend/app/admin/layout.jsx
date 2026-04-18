@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAdmin } from '@/context/AdminContext'
 import Button from '@/components/Button'
-import { DashboardIcon, ProductsIcon, OrdersIcon, UsersIcon, SettingsIcon } from '@/components/icons'
+import { DashboardIcon, ProductsIcon, OrdersIcon, UsersIcon, SettingsIcon, CouponsIcon } from '@/components/icons'
 import { fetchStoreSettings } from '@/lib/api'
 
 export default function AdminLayout({ children }) {
@@ -27,7 +27,7 @@ export default function AdminLayout({ children }) {
       setCollapsed((s) => !s)
     }
   }
-  const { isAdmin, loading, authFetch, logout, canViewDashboard, canManageProducts, canViewOrders, canManageUsers, canManageSettings } = useAdmin()
+  const { isAdmin, loading, authFetch, logout, canViewDashboard, canManageProducts, canViewOrders, canManageUsers, canManageSettings, canManageCoupons } = useAdmin()
   const { username } = useAdmin()
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
@@ -41,6 +41,7 @@ export default function AdminLayout({ children }) {
     { href: '/admin/dashboard', label: 'لوحة التحكم', visible: canViewDashboard },
     { href: '/admin/products', label: 'المنتجات', visible: canManageProducts },
     { href: '/admin/orders', label: 'الطلبات', visible: canViewOrders },
+    { href: '/admin/coupons', label: 'الكوبونات', visible: canManageCoupons },
     { href: '/admin/users', label: 'المستخدمون', visible: canManageUsers },
     { href: '/admin/settings', label: 'الإعدادات', visible: canManageSettings }
   ].filter((item) => item.visible)
@@ -49,6 +50,7 @@ export default function AdminLayout({ children }) {
     if (href.includes('/dashboard')) return DashboardIcon
     if (href.includes('/products')) return ProductsIcon
     if (href.includes('/orders')) return OrdersIcon
+    if (href.includes('/coupons')) return CouponsIcon
     if (href.includes('/users')) return UsersIcon
     if (href.includes('/settings')) return SettingsIcon
     return DashboardIcon

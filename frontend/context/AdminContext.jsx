@@ -205,6 +205,7 @@ export function AdminProvider({ children }) {
     canExportOrders: hasAnyRole(['Admin', 'Manager']),
     canManageUsers: hasAnyRole(['Admin']),
     canManageSettings: hasAnyRole(['Admin', 'Manager']),
+    canManageCoupons: hasAnyRole(['Admin', 'Manager']),
     loading,
     login,
     logout,

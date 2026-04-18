@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using StackExchange.Redis;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +44,31 @@ if (string.IsNullOrWhiteSpace(jwtCandidate) || jwtCandidate.Length < 32 || (jwtC
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var path = httpContext.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
+        var isSensitivePath = path.Contains("/api/auth/login")
+            || path.Contains("/api/auth/refresh")
+            || path.Contains("/api/orders/customer/request-otp")
+            || path.Contains("/api/orders/customer/verify-otp");
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"{ip}:{(isSensitivePath ? "sensitive" : "general")}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = isSensitivePath ? 20 : 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+});
 
 // Add CORS (development: allow localhost origins)
 builder.Services.AddCors(options =>
@@ -178,6 +205,86 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
+    bool SqliteMigrationHistoryContains(string migrationId)
+    {
+        try
+        {
+            using var connection = db.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                connection.Open();
+            }
+
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(1) FROM __EFMigrationsHistory WHERE MigrationId = $id;";
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "$id";
+            parameter.Value = migrationId;
+            command.Parameters.Add(parameter);
+
+            var result = command.ExecuteScalar();
+            return Convert.ToInt32(result) > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    string SqliteResolveProductVersion()
+    {
+        try
+        {
+            using var connection = db.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                connection.Open();
+            }
+
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT ProductVersion FROM __EFMigrationsHistory ORDER BY MigrationId DESC LIMIT 1;";
+            var result = command.ExecuteScalar();
+            return Convert.ToString(result) ?? "8.0.0";
+        }
+        catch
+        {
+            return "8.0.0";
+        }
+    }
+
+    bool TryRepairKnownSqliteMigrationConflict(Exception ex)
+    {
+        if (!db.Database.IsSqlite()) return false;
+
+        var message = ex.ToString();
+        var isKnownDuplicateOrderStatusChanges =
+            message.Contains("OrderStatusChanges", StringComparison.OrdinalIgnoreCase)
+            && message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
+            && SqliteTableExists("OrderStatusChanges");
+
+        if (!isKnownDuplicateOrderStatusChanges) return false;
+
+        const string knownMigrationId = "20260219092332_AddOrderStatusChange";
+        if (SqliteMigrationHistoryContains(knownMigrationId)) return false;
+
+        try
+        {
+            var productVersion = SqliteResolveProductVersion();
+            db.Database.ExecuteSqlRaw(
+                "INSERT INTO __EFMigrationsHistory (MigrationId, ProductVersion) VALUES ({0}, {1});",
+                knownMigrationId,
+                productVersion);
+
+            Console.Error.WriteLine($"Reconciled SQLite migration history for {knownMigrationId}.");
+            return true;
+        }
+        catch (Exception repairEx)
+        {
+            Console.Error.WriteLine("Failed to repair SQLite migration history: " + repairEx.Message);
+            return false;
+        }
+    }
+
     void EnsureSqliteSchemaBootstrap()
     {
         if (!db.Database.IsSqlite()) return;
@@ -225,15 +332,44 @@ using (var scope = app.Services.CreateScope())
     {
         Console.Error.WriteLine("Failed to apply migrations: " + ex);
 
-        // SQLite fallback: if migrations are unavailable in a fresh environment,
-        // create schema from the current model to avoid startup crashes.
-        if (db.Database.IsSqlite())
+        if (TryRepairKnownSqliteMigrationConflict(ex))
         {
             try
             {
-                db.Database.EnsureCreated();
+                db.Database.Migrate();
                 databaseReady = true;
-                Console.WriteLine("SQLite schema ensured via EnsureCreated fallback.");
+                Console.WriteLine("SQLite migration resumed after migration history reconciliation.");
+            }
+            catch (Exception retryEx)
+            {
+                Console.Error.WriteLine("Migration retry failed after reconciliation: " + retryEx);
+            }
+        }
+
+        // SQLite fallback: if migrations are unavailable in a fresh environment,
+        // create schema from the current model to avoid startup crashes.
+        if (!databaseReady && db.Database.IsSqlite())
+        {
+            try
+            {
+                var userTableCount = SqliteUserTableCount();
+                if (userTableCount == 0)
+                {
+                    db.Database.EnsureCreated();
+                    databaseReady = true;
+                    Console.WriteLine("SQLite schema ensured via EnsureCreated fallback for empty database.");
+                }
+                else
+                {
+                    Console.Error.WriteLine($"SQLite migration aborted for non-empty database (table count: {userTableCount}). Manual migration fix required.");
+
+                    var hasCriticalSchema = SqliteTableExists("Perfumes") && SqliteTableExists("Users") && SqliteTableExists("Orders");
+                    if (hasCriticalSchema)
+                    {
+                        databaseReady = true;
+                        Console.Error.WriteLine("Proceeding with existing SQLite schema despite migration drift. Create a cleanup migration plan before production rollout.");
+                    }
+                }
             }
             catch (Exception ensureEx)
             {
@@ -257,6 +393,37 @@ using (var scope = app.Services.CreateScope())
         if (missingCriticalTables)
         {
             throw new InvalidOperationException("SQLite schema is missing required tables (Perfumes/Users/Orders) after startup initialization.");
+        }
+
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS Coupons (
+                    Id TEXT NOT NULL CONSTRAINT PK_Coupons PRIMARY KEY,
+                    Type TEXT NOT NULL,
+                    Amount TEXT NOT NULL,
+                    Title TEXT NOT NULL,
+                    IsActive INTEGER NOT NULL,
+                    UpdatedAt TEXT NOT NULL
+                );
+            ");
+
+            db.Database.ExecuteSqlRaw(@"
+                INSERT OR IGNORE INTO Coupons (Id, Type, Amount, Title, IsActive, UpdatedAt)
+                VALUES ('WELCOME10', 'percent', '10', 'خصم 10% للترحيب', 1, CURRENT_TIMESTAMP);
+            ");
+            db.Database.ExecuteSqlRaw(@"
+                INSERT OR IGNORE INTO Coupons (Id, Type, Amount, Title, IsActive, UpdatedAt)
+                VALUES ('SAR50', 'fixed', '50', 'خصم 50 ر.س', 1, CURRENT_TIMESTAMP);
+            ");
+            db.Database.ExecuteSqlRaw(@"
+                INSERT OR IGNORE INTO Coupons (Id, Type, Amount, Title, IsActive, UpdatedAt)
+                VALUES ('SHIPFREE', 'free_shipping', '0', 'شحن مجاني', 1, CURRENT_TIMESTAMP);
+            ");
+        }
+        catch (Exception couponSchemaEx)
+        {
+            Console.Error.WriteLine("Coupons SQLite schema ensure failed: " + couponSchemaEx.Message);
         }
     }
 
@@ -303,17 +470,21 @@ using (var scope = app.Services.CreateScope())
     if (!db.Users.Any())
     {
         var hashed = BCrypt.Net.BCrypt.HashPassword("admin123");
-        db.Users.Add(new User { Username = "admin", Password = hashed, Role = "Admin", Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports });
+        db.Users.Add(new User { Username = "admin", Password = hashed, Role = "Admin", Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin") });
         db.SaveChanges();
     }
     else
     {
-        // Ensure at least one admin has reporting permission during local development
+        // Ensure at least one admin has baseline admin permissions during local development
         var adminUser = db.Users.FirstOrDefault(u => u.Role == "Admin" || u.Role == "admin");
-        if (adminUser != null && adminUser.Permissions == 0)
+        if (adminUser != null)
         {
-            adminUser.Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports;
-            db.SaveChanges();
+            var adminMask = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin");
+            if (adminUser.Permissions == 0 || (adminUser.Permissions & (long)PerfumeEmpire.Authorization.Permission.ManageCoupons) == 0)
+            {
+                adminUser.Permissions = adminMask;
+                db.SaveChanges();
+            }
         }
     }
 
@@ -337,7 +508,7 @@ using (var scope = app.Services.CreateScope())
                     Username = bootstrapUsername,
                     Password = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword),
                     Role = "Admin",
-                    Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports
+                    Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin")
                 });
                 db.SaveChanges();
                 Console.WriteLine($"Bootstrap admin user created: {bootstrapUsername}");
@@ -357,9 +528,9 @@ using (var scope = app.Services.CreateScope())
                     updated = true;
                 }
 
-                if (bootstrapAdmin.Permissions == 0)
+                if (bootstrapAdmin.Permissions == 0 || (bootstrapAdmin.Permissions & (long)PerfumeEmpire.Authorization.Permission.ManageCoupons) == 0)
                 {
-                    bootstrapAdmin.Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports;
+                    bootstrapAdmin.Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin");
                     updated = true;
                 }
 
@@ -384,6 +555,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
 // In development we avoid forcing HTTPS redirection so local proxying (HTTP) works
 // and developers can test without dealing with self-signed cert redirects.
 if (!app.Environment.IsDevelopment())
@@ -403,6 +575,7 @@ try
     if (!Directory.Exists(uploadsDir)) Directory.CreateDirectory(uploadsDir);
 }
 catch { }
+app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();

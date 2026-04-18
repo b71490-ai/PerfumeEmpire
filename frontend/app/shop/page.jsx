@@ -40,6 +40,7 @@ export default function Shop() {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [currencySymbol, setCurrencySymbol] = useState('ر.س')
   const [currencyCode, setCurrencyCode] = useState('SAR')
+  const [addingToCartId, setAddingToCartId] = useState(null)
   const trackedListSignatureRef = useRef('')
   const trackedSearchSignatureRef = useRef('')
   const deferredSearchTerm = useDeferredValue(searchTerm)
@@ -344,24 +345,31 @@ export default function Shop() {
   }, [normalizedSearchTerm, sortedPerfumes, currencyCode])
 
   const handleAddToCart = (perfume) => {
+    if (addingToCartId === perfume.id) return false
+    setAddingToCartId(perfume.id)
+
     if (maintenanceMode) {
       showToast(maintenanceMessage || 'المتجر تحت الصيانة حالياً', 'error')
+      setAddingToCartId(null)
       return false
     }
 
     if ((perfume.stock ?? 0) <= 0) {
       showToast('هذا المنتج غير متوفر حالياً', 'error')
+      setAddingToCartId(null)
       return false
     }
 
     const added = addToCart(perfume)
     if (!added) {
       showToast('لا يمكن إضافة المنتج حالياً', 'error')
+      setTimeout(() => setAddingToCartId((current) => (current === perfume.id ? null : current)), 450)
       return false
     }
 
     trackAddToCart({ item: perfume, quantity: 1, currency: currencyCode })
     showToast(`تمت إضافة ${perfume.name} إلى السلة`)
+    setTimeout(() => setAddingToCartId((current) => (current === perfume.id ? null : current)), 450)
     return true
   }
 
@@ -822,12 +830,24 @@ export default function Shop() {
 
                   {/* Full-width black CTA */}
                   <button 
-                    className="btn-full-black hover-cart-cta"
+                    className={`btn-full-black hover-cart-cta cart-add-btn${addingToCartId === perfume.id ? ' is-loading' : ''}`}
                     onClick={() => handleAddToCart(perfume)}
-                    disabled={maintenanceMode || (perfume.stock ?? 0) <= 0}
+                    disabled={addingToCartId === perfume.id || maintenanceMode || (perfume.stock ?? 0) <= 0}
                     aria-label={maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? 'أضف إلى السلة' : 'غير متوفر')}
                   >
-                    {maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? '🛒 أضف إلى السلة' : 'غير متوفر')}
+                    {addingToCartId === perfume.id ? (
+                      <>
+                        <span className="btn-spinner" aria-hidden="true" />
+                        <span>جاري الإضافة...</span>
+                      </>
+                    ) : maintenanceMode ? (
+                      'المتجر تحت الصيانة'
+                    ) : ((perfume.stock ?? 0) > 0 ? (
+                      <>
+                        <span aria-hidden="true">🛒</span>
+                        <span>أضف إلى السلة</span>
+                      </>
+                    ) : 'غير متوفر')}
                   </button>
                 </div>
             </div>

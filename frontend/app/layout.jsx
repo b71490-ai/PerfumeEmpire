@@ -166,11 +166,12 @@ export async function generateMetadata() {
 
 export default async function RootLayout({ children }) {
   const { gaId, gtmId, pixelId } = await getTrackingSettings()
+  const cookieStore = await cookies()
 
   // read theme cookie (if present) so we can render matching attributes server-side
   const cookieTheme = (function () {
     try {
-      const c = cookies().get('theme')
+      const c = cookieStore.get('theme')
       return c?.value
     } catch (e) {
       return undefined

@@ -38,6 +38,11 @@ public class AdminController : ControllerBase
         return null;
     }
 
+    private static long PermissionsForRole(string role)
+    {
+        return PerfumeEmpire.Authorization.PermissionProfiles.ForRole(role);
+    }
+
     [HttpGet("stats")]
     [PerfumeEmpire.Authorization.RequirePermission(PerfumeEmpire.Authorization.Permission.ViewReports)]
     public async Task<IActionResult> GetStats()
@@ -200,7 +205,8 @@ public class AdminController : ControllerBase
         {
             Username = username,
             Password = hashed,
-            Role = role
+            Role = role,
+            Permissions = PermissionsForRole(role)
         };
 
         _db.Users.Add(user);
@@ -247,6 +253,7 @@ public class AdminController : ControllerBase
 
         user.Username = newUsername;
         user.Role = normalizedRole;
+        user.Permissions = PermissionsForRole(normalizedRole);
         await _db.SaveChangesAsync();
 
         return Ok(new

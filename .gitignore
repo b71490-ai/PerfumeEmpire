@@ -11,6 +11,9 @@
 # .NET
 **/bin/
 **/obj/
+backend/AppData/perfume.db
+backend/AppData/perfume.db-shm
+backend/AppData/perfume.db-wal
 
 # Logs
 *.log

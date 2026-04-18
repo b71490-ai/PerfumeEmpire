@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PerfumeEmpire.Models.Order> Orders => Set<PerfumeEmpire.Models.Order>();
     public DbSet<PerfumeEmpire.Models.OrderItem> OrderItems => Set<PerfumeEmpire.Models.OrderItem>();
     public DbSet<PerfumeEmpire.Models.Review> Reviews => Set<PerfumeEmpire.Models.Review>();
+    public DbSet<PerfumeEmpire.Models.Coupon> Coupons => Set<PerfumeEmpire.Models.Coupon>();
     public DbSet<PerfumeEmpire.Models.RefreshToken> RefreshTokens => Set<PerfumeEmpire.Models.RefreshToken>();
     public DbSet<PerfumeEmpire.Models.OrderStatusChange> OrderStatusChanges => Set<PerfumeEmpire.Models.OrderStatusChange>();
 }

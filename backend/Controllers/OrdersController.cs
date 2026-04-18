@@ -216,7 +216,7 @@ public class OrdersController : ControllerBase
             }
         }
 
-        Console.WriteLine($"[CustomerOTP] Phone={normalizedPhone}, Code={code}, ExpiresAt={challenge.ExpiresAtUtc:O}");
+        Console.WriteLine($"[CustomerOTP] OTP generated for phone ending with {normalizedPhone[^Math.Min(4, normalizedPhone.Length)..]}, ExpiresAt={challenge.ExpiresAtUtc:O}");
 
         if (_env.IsDevelopment())
         {

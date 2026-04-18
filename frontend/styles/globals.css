@@ -1371,7 +1371,10 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
 .shop-product-card .price-primary.new-price { font-size:1.45rem; font-weight:900; color:#111 }
 .shop-product-card .price-old.small-old { font-size:0.92rem; color:#9ca3af; text-decoration:line-through; margin-left:8px }
 .btn-full-black {
-  display:block;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
   width:100%;
   background:#111;
   color:#fff;
@@ -1383,6 +1386,19 @@ body[data-theme="light"], :root[data-theme="light"], body.theme-light, .theme-li
   cursor:pointer;
 }
 .btn-full-black[disabled] { opacity:0.6; cursor:not-allowed }
+
+.cart-add-btn {
+  transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease;
+}
+
+.cart-add-btn:active:not([disabled]) {
+  transform: scale(0.95);
+}
+
+.cart-add-btn.is-loading {
+  cursor: wait;
+  filter: saturate(0.92);
+}
 
 
 .price-section {
@@ -14165,6 +14181,15 @@ html {
   min-width: 100%;
 }
 
+.top-trust-strip.hero-trust-bar .hero-trust-bar__inner {
+  animation: heroTrustMarqueeRtl 24s linear infinite !important;
+  will-change: transform;
+}
+
+.top-trust-strip.hero-trust-bar:hover .hero-trust-bar__inner {
+  animation-play-state: paused;
+}
+
 .hero-trust-bar .trust-item,
 .hero-trust-bar .trust-item span,
 .hero-trust-bar .trust-word-white {
@@ -14175,6 +14200,17 @@ html {
 
 .hero-trust-bar .trust-item {
   flex: 0 0 auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-trust-strip.hero-trust-bar .hero-trust-bar__inner {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .top-trust-strip.hero-trust-bar .trust-item-copy {
+    display: none;
+  }
 }
 
 /* Floating bottom buy bar on product page */

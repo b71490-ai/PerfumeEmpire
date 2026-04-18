@@ -2,7 +2,8 @@ import ProductDetailsClient from '@/app/product/ProductDetailsClient'
 import { getServerApiUrl } from '@/lib/serverApi'
 
 export async function generateMetadata({ params }) {
-  const id = params?.id
+  const resolvedParams = await params
+  const id = resolvedParams?.id
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   const metadataBase = new URL(siteUrl)
   const canonicalPath = `/shop/product/${id}`
@@ -69,6 +70,7 @@ export async function generateMetadata({ params }) {
   }
 }
 
-export default function ProductPage({ params }) {
-  return <ProductDetailsClient productId={params.id} />
+export default async function ProductPage({ params }) {
+  const resolvedParams = await params
+  return <ProductDetailsClient productId={resolvedParams?.id} />
 }

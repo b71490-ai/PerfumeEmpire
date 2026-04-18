@@ -129,6 +129,8 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [PerfumeEmpire.Authorization.RequirePermission(PerfumeEmpire.Authorization.Permission.ManageUsers)]
     public IActionResult Register([FromBody] LoginDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
@@ -138,12 +140,13 @@ public class AuthController : ControllerBase
             return Conflict(new { message = "User already exists" });
 
         var hashed = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-        var user = new User { Username = dto.Username, Password = hashed, Role = "Admin" };
-        // In development, give seeded/registered admin a basic reporting permission to ease local testing
-        if (_env.IsDevelopment())
+        var user = new User
         {
-            user.Permissions = (long)PerfumeEmpire.Authorization.Permission.ViewReports;
-        }
+            Username = dto.Username.Trim(),
+            Password = hashed,
+            Role = "Support",
+            Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Support")
+        };
         _db.Users.Add(user);
         _db.SaveChanges();
         return Ok(new { username = user.Username });
@@ -152,19 +155,6 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public IActionResult Refresh([FromBody] RefreshDto? dto)
     {
-        try
-        {
-            var cookieHeader = Request.Headers["Cookie"].ToString();
-            Console.WriteLine("[AuthController.Refresh] Request Cookie header: " + cookieHeader);
-            foreach (var c in Request.Cookies)
-            {
-                Console.WriteLine("[AuthController.Refresh] Cookie: " + c.Key + " = " + c.Value);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("[AuthController.Refresh] Logging failed: " + ex.Message);
-        }
         // Prefer cookie-based refresh token when available
         var cookieToken = Request.Cookies["refreshToken"];
         var tokenToUse = cookieToken ?? dto?.RefreshToken;

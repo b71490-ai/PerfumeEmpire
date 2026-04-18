@@ -12,9 +12,9 @@
     "perf:audit": "npm run build && npm run perf:lhci"
   },
   "dependencies": {
-    "axios": "^1.13.5",
+    "axios": "^1.15.0",
     "debug": "^4.4.3",
-    "next": "13.5.11",
+    "next": "15.5.15",
     "leaflet": "^1.9.4",
     "next-themes": "^0.4.6",
     "react": "18.2.0",
@@ -25,7 +25,10 @@
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.40.0",
     "eslint": "^8.57.1",
-    "eslint-config-next": "13.5.11",
+    "eslint-config-next": "15.5.15",
     "playwright": "^1.40.0"
+  },
+  "overrides": {
+    "follow-redirects": "1.16.0"
   }
 }

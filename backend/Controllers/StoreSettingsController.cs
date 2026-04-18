@@ -33,6 +33,63 @@ public class StoreSettingsController : ControllerBase
         WriteIndented = true
     };
 
+    private static object ToPublicSettings(StoreSettingsDto dto)
+    {
+        return new
+        {
+            dto.StoreName,
+            dto.StoreTagline,
+            dto.LogoText,
+            dto.LogoIcon,
+            dto.LogoImageUrl,
+            dto.LogoBackgroundColor,
+            dto.InvoiceLogoAutoMask,
+            dto.ContactPhone,
+            dto.ContactEmail,
+            dto.ContactWhatsapp,
+            dto.ContactInstagram,
+            dto.ContactAddress,
+            dto.BusinessHours,
+            dto.SeoDescription,
+            dto.SeoKeywords,
+            dto.MaintenanceMode,
+            dto.MaintenanceMessage,
+            dto.AnnouncementEnabled,
+            dto.AnnouncementText,
+            dto.AnnouncementLink,
+            dto.CurrencyCode,
+            dto.CurrencySymbol,
+            dto.TaxRatePercent,
+            dto.BusinessLegalName,
+            dto.VatRegistrationNumber,
+            dto.CommercialRegistrationNumber,
+            dto.PaymentEnabled,
+            dto.CodEnabled,
+            dto.PaymentProvider,
+            dto.PaymentSandboxMode,
+            dto.PaymentPublicKey,
+            dto.ShippingFlatFee,
+            dto.FreeShippingThreshold,
+            dto.ShippingMainCitiesMinDays,
+            dto.ShippingMainCitiesMaxDays,
+            dto.ShippingOtherCitiesMinDays,
+            dto.ShippingOtherCitiesMaxDays,
+            dto.ReturnWindowDays,
+            dto.ShippingPolicyText,
+            dto.ReturnsPolicyText,
+            dto.PrivacyPolicyText,
+            dto.UpdatedAt,
+            dto.NotificationOrderCreatedTemplate,
+            dto.NotificationOrderShippedTemplate,
+            dto.NotificationOrderDeliveredTemplate,
+            dto.GoogleAnalyticsId,
+            dto.MetaPixelId,
+            dto.TagManagerId,
+            dto.MediaProvider,
+            dto.MediaBaseUrl
+        };
+    }
+
     private StoreSettingsDto DefaultSettings() => new();
 
     [HttpGet]
@@ -44,22 +101,19 @@ public class StoreSettingsController : ControllerBase
         {
             var defaults = DefaultSettings();
             System.IO.File.WriteAllText(path, JsonSerializer.Serialize(defaults, JsonOptions));
-            return Ok(defaults);
+            return Ok(ToPublicSettings(defaults));
         }
 
         try
         {
-            // Return the raw JSON content from the settings file to avoid any
-            // formatter differences that could omit fields. The file is written
-            // using `JsonOptions` elsewhere, so returning it verbatim ensures
-            // the frontend receives exactly what is persisted.
             var content = System.IO.File.ReadAllText(path);
-            return Content(content, "application/json");
+            var dto = JsonSerializer.Deserialize<StoreSettingsDto>(content, JsonOptions) ?? DefaultSettings();
+            return Ok(ToPublicSettings(dto));
         }
         catch
         {
             // Fallback: return typed defaults if reading fails
-            return Ok(DefaultSettings());
+            return Ok(ToPublicSettings(DefaultSettings()));
         }
     }
 

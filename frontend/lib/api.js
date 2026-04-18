@@ -124,6 +124,25 @@ export async function updateStoreSettings(payload) {
   return res.data;
 }
 
+export async function fetchCoupons() {
+  const res = await api.get('/coupons');
+  return res.data;
+}
+
+export async function createCoupon(payload) {
+  const res = await api.post('/coupons', payload);
+  return res.data;
+}
+
+export async function updateCoupon(code, payload) {
+  const res = await api.put(`/coupons/${encodeURIComponent(code)}`, payload);
+  return res.data;
+}
+
+export async function deleteCoupon(code) {
+  await api.delete(`/coupons/${encodeURIComponent(code)}`);
+}
+
 export async function submitContactMessage(payload) {
   const res = await api.post('/contact-messages', payload);
   return res.data;

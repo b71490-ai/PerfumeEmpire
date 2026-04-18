@@ -28,6 +28,7 @@ export default function ProductDetailsClient({ productId }) {
   const [currencyCode, setCurrencyCode] = useState('SAR')
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(500)
   const [showBottomBuyBar, setShowBottomBuyBar] = useState(false)
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
   const lastTrackedProductIdRef = useRef(null)
   const locale = getUserLocale('ar-SA')
 
@@ -105,18 +106,24 @@ export default function ProductDetailsClient({ productId }) {
   }
 
   const handleAddToCart = () => {
+    if (isAddingToCart) return
+    setIsAddingToCart(true)
+
     if (maintenanceMode) {
       showToast(maintenanceMessage || 'المتجر تحت الصيانة حالياً', 'error')
+      setIsAddingToCart(false)
       return
     }
 
     if ((perfume.stock ?? 0) <= 0) {
       showToast('هذا المنتج غير متوفر حالياً', 'error')
+      setIsAddingToCart(false)
       return
     }
 
     if (selectedQuantity > (perfume.stock ?? 0)) {
       showToast(`الكمية المتوفرة فقط: ${perfume.stock}`, 'error')
+      setIsAddingToCart(false)
       return
     }
 
@@ -129,6 +136,7 @@ export default function ProductDetailsClient({ productId }) {
 
     if (addedCount <= 0) {
       showToast('لا يمكن إضافة كمية إضافية من هذا المنتج', 'error')
+      setTimeout(() => setIsAddingToCart(false), 450)
       return
     }
 
@@ -139,10 +147,12 @@ export default function ProductDetailsClient({ productId }) {
     })
     if (addedCount < selectedQuantity) {
       showToast(`تمت إضافة ${addedCount} فقط من ${perfume.name} بسبب حد المخزون`, 'error')
+      setTimeout(() => setIsAddingToCart(false), 450)
       return
     }
 
     showToast(`تمت إضافة ${selectedQuantity} من ${perfume.name} إلى السلة`)
+    setTimeout(() => setIsAddingToCart(false), 450)
   }
 
   const handleToggleWishlist = () => {
@@ -412,9 +422,22 @@ export default function ProductDetailsClient({ productId }) {
           </div>
 
           <div className="product-actions">
-            <button onClick={handleAddToCart} className="btn-add-to-cart btn-buy-primary-large" disabled={maintenanceMode || (perfume.stock ?? 0) <= 0}>
-              <span>🛒</span>
-              <span>{maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? 'اشتر الآن' : 'غير متوفر')}</span>
+            <button
+              onClick={handleAddToCart}
+              className={`btn-add-to-cart btn-buy-primary-large cart-add-btn${isAddingToCart ? ' is-loading' : ''}`}
+              disabled={isAddingToCart || maintenanceMode || (perfume.stock ?? 0) <= 0}
+            >
+              {isAddingToCart ? (
+                <>
+                  <span className="btn-spinner" aria-hidden="true" />
+                  <span>جاري الإضافة...</span>
+                </>
+              ) : (
+                <>
+                  <span aria-hidden="true">🛒</span>
+                  <span>{maintenanceMode ? 'المتجر تحت الصيانة' : ((perfume.stock ?? 0) > 0 ? 'أضف إلى السلة' : 'غير متوفر')}</span>
+                </>
+              )}
             </button>
             <button onClick={handleToggleWishlist} className="btn-wishlist-action">
               <span>{isInWishlist(perfume.id) ? '❤️' : '🤍'}</span>

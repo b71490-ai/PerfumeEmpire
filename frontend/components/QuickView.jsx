@@ -10,6 +10,7 @@ export default function QuickView({ perfume, onClose, onAddToCart, currencySymbo
   const previousFocusedElementRef = useRef(null)
   const closeDurationRef = useRef(170)
   const [isClosing, setIsClosing] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
 
   const requestClose = useCallback(() => {
     if (closeTimerRef.current) return
@@ -135,14 +136,30 @@ export default function QuickView({ perfume, onClose, onAddToCart, currencySymbo
             <p className="quickview-desc">اكتشف نفحات متوازنة ومركبات مختارة بعناية لتدوم رائحتها معك طوال اليوم.</p>
             <div className="quickview-actions">
               <button
-                className="quickview-btn quickview-btn-primary"
-                disabled={isClosing}
+                className={`quickview-btn quickview-btn-primary cart-add-btn${isAdding ? ' is-loading' : ''}`}
+                disabled={isClosing || isAdding}
                 onClick={() => {
+                  if (isAdding) return
+                  setIsAdding(true)
                   const added = onAddToCart(perfume)
-                  if (added) requestClose()
+                  if (added) {
+                    requestClose()
+                    return
+                  }
+                  setTimeout(() => setIsAdding(false), 450)
                 }}
               >
-                🛒 أضف إلى السلة
+                {isAdding ? (
+                  <>
+                    <span className="btn-spinner" aria-hidden="true" />
+                    <span>جاري الإضافة...</span>
+                  </>
+                ) : (
+                  <>
+                    <span aria-hidden="true">🛒</span>
+                    <span>أضف إلى السلة</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

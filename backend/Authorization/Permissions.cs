@@ -29,6 +29,9 @@ public enum Permission : long
     // Users
     ManageUsers = 1L << 50,
 
+    // Coupons
+    ManageCoupons = 1L << 51,
+
     // Composite shortcuts
     AllProducts = ManageProducts | CreateProduct | EditProduct | DeleteProduct,
     AllOrders = ViewOrders | UpdateOrderStatus | CancelOrders,

@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using StackExchange.Redis;
+using PerfumeEmpire.Authorization;
 
 namespace PerfumeEmpire.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequirePermission(Permission.ViewReports)]
 public class DiagnosticsController : ControllerBase
 {
     private readonly IConnectionMultiplexer? _mux;
