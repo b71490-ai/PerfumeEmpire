@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useAdmin } from '@/context/AdminContext'
@@ -11,6 +12,7 @@ import { fetchStoreSettings } from '@/lib/api'
 export default function Header() {
   const { getCartCount } = useCart()
   const { isAdmin } = useAdmin()
+  const pathname = usePathname()
   const cartCount = getCartCount()
   const [cartBadgeBump, setCartBadgeBump] = useState(false)
   const [isScrollHidden, setIsScrollHidden] = useState(false)
@@ -53,6 +55,12 @@ export default function Header() {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
+    const isShopRoute = String(pathname || '').startsWith('/shop')
+    if (!isShopRoute) {
+      setIsScrollHidden(false)
+      return undefined
+    }
+
     let lastY = window.scrollY || 0
     let hidden = false
 
@@ -71,16 +79,17 @@ export default function Header() {
       }
 
       const currentY = window.scrollY || 0
-      if (currentY < 12) {
+      if (currentY < 24) {
         applyHidden(false)
         lastY = currentY
         return
       }
 
       const delta = currentY - lastY
-      if (delta > 6) {
+      // Hide quickly while browsing products: scroll down => hide, up => show.
+      if (delta > 2 && currentY > 64) {
         applyHidden(true)
-      } else if (delta < -6) {
+      } else if (delta < -1) {
         applyHidden(false)
       }
 
@@ -95,7 +104,7 @@ export default function Header() {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
     }
-  }, [])
+  }, [pathname])
 
   return (
     <header className={`main-header${isScrollHidden ? ' is-scroll-hidden' : ''}`}>

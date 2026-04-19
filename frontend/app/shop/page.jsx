@@ -38,6 +38,7 @@ export default function Shop() {
   const [brandFilter, setBrandFilter] = useState('all')
   const [sizeFilter, setSizeFilter] = useState('all')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isShopChromeHidden, setIsShopChromeHidden] = useState(false)
   const [currencySymbol, setCurrencySymbol] = useState('ر.س')
   const [currencyCode, setCurrencyCode] = useState('SAR')
   const [addingToCartId, setAddingToCartId] = useState(null)
@@ -191,7 +192,7 @@ export default function Shop() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined
+    if (typeof window === 'undefined') return undefined
 
     let lastY = window.scrollY || 0
     let hidden = false
@@ -199,27 +200,36 @@ export default function Shop() {
     const applyHidden = (next) => {
       if (hidden === next) return
       hidden = next
-      document.body.classList.toggle('shop-header-hidden', next)
+      setIsShopChromeHidden(next)
     }
 
     const onScroll = () => {
-      const isMobileOrTablet = window.matchMedia('(max-width: 992px)').matches
-      if (!isMobileOrTablet) {
+      const isMobile = window.matchMedia('(max-width: 992px)').matches
+      if (!isMobile) {
+        applyHidden(false)
+        lastY = window.scrollY || 0
+        return
+      }
+
+      if (isFilterOpen) {
         applyHidden(false)
         lastY = window.scrollY || 0
         return
       }
 
       const currentY = window.scrollY || 0
-      if (currentY < 20) {
+      if (currentY < 36) {
         applyHidden(false)
         lastY = currentY
         return
       }
 
       const delta = currentY - lastY
-      if (delta > 6) applyHidden(true)
-      else if (delta < -6) applyHidden(false)
+      if (delta > 2 && currentY > 96) {
+        applyHidden(true)
+      } else if (delta < -2) {
+        applyHidden(false)
+      }
 
       lastY = currentY
     }
@@ -231,9 +241,8 @@ export default function Shop() {
     return () => {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
-      document.body.classList.remove('shop-header-hidden')
     }
-  }, [])
+  }, [isFilterOpen])
 
   useEffect(() => {
     try {
@@ -478,7 +487,7 @@ export default function Shop() {
   if (error) return <main className="container"><p className="error" role="alert">❌ خطأ: {error}</p></main>
 
   return (
-    <main className="container shop-page--shein">
+    <main className={`container shop-page--shein${isShopChromeHidden ? ' shop-chrome-hidden' : ''}`}>
       {quickView && (
         <QuickView perfume={quickView} currencySymbol={currencySymbol} onClose={() => setQuickView(null)} onAddToCart={handleAddToCart} />
       )}
