@@ -60,50 +60,8 @@ export default function Header() {
       setIsScrollHidden(false)
       return undefined
     }
-
-    let lastY = window.scrollY || 0
-    let hidden = false
-
-    const applyHidden = (next) => {
-      if (hidden === next) return
-      hidden = next
-      setIsScrollHidden(next)
-    }
-
-    const onScroll = () => {
-      const isMobile = window.matchMedia('(max-width: 992px)').matches
-      if (!isMobile) {
-        applyHidden(false)
-        lastY = window.scrollY || 0
-        return
-      }
-
-      const currentY = window.scrollY || 0
-      if (currentY < 24) {
-        applyHidden(false)
-        lastY = currentY
-        return
-      }
-
-      const delta = currentY - lastY
-      // Hide quickly while browsing products: scroll down => hide, up => show.
-      if (delta > 2 && currentY > 64) {
-        applyHidden(true)
-      } else if (delta < -1) {
-        applyHidden(false)
-      }
-
-      lastY = currentY
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
-    onScroll()
-
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-    }
+    setIsScrollHidden(false)
+    return undefined
   }, [pathname])
 
   return (

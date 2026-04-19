@@ -225,9 +225,9 @@ export default function Shop() {
       }
 
       const delta = currentY - lastY
-      if (delta > 2 && currentY > 96) {
+      if (delta > 10 && currentY > 140) {
         applyHidden(true)
-      } else if (delta < -2) {
+      } else if (delta < -8) {
         applyHidden(false)
       }
 
