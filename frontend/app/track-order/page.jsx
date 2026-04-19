@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/useToast'
 import { digitsOnly, formatDateTime, formatMoney, formatTime, getUserLocale } from '@/lib/intl'
 
 const TRACKING_PREFS_KEY = 'trackOrderPrefsV1'
-const TRACKING_PHONE_KEY = 'trackOrderLastPhone'
 
 function isValidOrderId(value) {
   const normalized = digitsOnly(value || '').trim()
@@ -175,26 +174,14 @@ export default function TrackOrderPage() {
 
     const params = new URLSearchParams(window.location.search)
     const orderId = digitsOnly(params.get('orderId') || '')
-    const phone = digitsOnly(params.get('phone') || '')
-
-    let savedPhone = ''
-    try {
-      savedPhone = digitsOnly(localStorage.getItem(TRACKING_PHONE_KEY) || '')
-    } catch {
-      // ignore localStorage issues
-    }
-
-    if (orderId || phone) {
+    if (orderId) {
       setForm((prev) => ({
         ...prev,
-        orderId: orderId || prev.orderId,
-        phone: phone || savedPhone || prev.phone
+        orderId: orderId || prev.orderId
       }))
-    } else if (savedPhone) {
-      setForm((prev) => ({ ...prev, phone: savedPhone }))
     }
 
-    if (isValidOrderId(orderId) && phone) {
+    if (isValidOrderId(orderId)) {
       setStatusNotice('أدخل رمز التحقق ثم اضغط عرض حالة الطلب.')
     }
   }, [fetchTrackingResult])
@@ -292,12 +279,6 @@ export default function TrackOrderPage() {
     if (!hasValidOrderId) {
       setError('رقم الطلب غير صالح. يرجى إدخال رقم طلب صحيح.')
       return
-    }
-
-    try {
-      localStorage.setItem(TRACKING_PHONE_KEY, sanitizedPhone)
-    } catch {
-      // ignore localStorage issues
     }
 
     let accessToken = otpAccessToken
@@ -779,19 +760,19 @@ export default function TrackOrderPage() {
   }, [])
 
   return (
-    <main className="container customer-page-shell">
+    <main className="container customer-page-shell track-order-page">
       <Toast toast={toast} onClose={closeToast} />
-      <div className="header-section customer-page-header">
+      <div className="header-section customer-page-header track-order-header">
         <h1>تتبع الطلب</h1>
-        <p>أدخل رقم الطلب ورقم الهاتف المرتبط بالطلب للحصول على أحدث حالة.</p>
-        <div className="track-order-intro-note">
-          <strong>ملاحظة:</strong> إذا وصلت من صفحة نجاح الطلب وكان رقم الطلب جاهز، يكفي إدخال رقم الهاتف فقط ثم اضغط عرض حالة الطلب.
+        <p>أدخل رقم الطلب ورقم الهاتف المرتبط بالطلب للحصول على أحدث حالة بشكل آمن ومباشر.</p>
+        <div className="track-order-intro-note track-order-hero-note">
+          <strong>ملاحظة:</strong> إذا وصلت من صفحة نجاح الطلب وكان رقم الطلب ظاهرًا لديك، يكفي إدخال رقم الهاتف ثم إكمال التحقق لمشاهدة الحالة الحالية والتفاصيل المالية.
         </div>
       </div>
 
-      <form onSubmit={onSubmit} className="form-container customer-card customer-form-card" aria-busy={loading}>
-        <div className="customer-form-grid">
-          <div className="form-group">
+      <form onSubmit={onSubmit} className="form-container customer-card customer-form-card track-order-form-card" aria-busy={loading}>
+        <div className="customer-form-grid track-order-form-grid">
+          <div className="form-group track-order-field-group">
             <label htmlFor="orderId">رقم الطلب</label>
             <input
               id="orderId"
@@ -805,10 +786,11 @@ export default function TrackOrderPage() {
               dir="ltr"
               disabled={loading}
             />
+            <small className="checkout-helper-note">يمكنك إيجاد رقم الطلب في صفحة نجاح الشراء أو رسالة التأكيد.</small>
             {orderIdValidationError && <p className="error" role="alert">{orderIdValidationError}</p>}
           </div>
 
-          <div className="form-group">
+          <div className="form-group track-order-field-group">
             <label htmlFor="phone">رقم الهاتف</label>
             <input
               id="phone"
@@ -820,10 +802,11 @@ export default function TrackOrderPage() {
               dir="ltr"
               disabled={loading}
             />
+            <small className="checkout-helper-note">استخدم نفس الرقم الذي تم إدخاله أثناء الطلب.</small>
           </div>
 
           {otpRequested && !otpAccessToken && (
-            <div className="form-group">
+            <div className="form-group track-order-field-group track-order-otp-group">
               <label htmlFor="otpCode">رمز التحقق (6 أرقام)</label>
               <input
                 id="otpCode"
@@ -847,30 +830,48 @@ export default function TrackOrderPage() {
         </div>
 
         {otpAccessToken && (
-          <p className="checkout-helper-note" role="status">✅ تم التحقق. يمكنك الآن متابعة حالة الطلب بأمان.</p>
+          <p className="checkout-helper-note track-order-verified-note" role="status">✅ تم التحقق. يمكنك الآن متابعة حالة الطلب بأمان.</p>
         )}
 
-        <div className="customer-actions-row">
-          <button type="submit" className="btn btn-primary" disabled={!canSubmit} aria-disabled={!canSubmit}>
+        <div className="customer-actions-row track-order-actions-row">
+          <button type="submit" className="btn btn-primary track-order-submit-btn" disabled={!canSubmit} aria-disabled={!canSubmit}>
             {submitLabel}
           </button>
-          <button type="button" className="btn btn-secondary" onClick={resetTracking} disabled={loading && refreshing}>
+          <button type="button" className="btn btn-secondary track-order-reset-btn" onClick={resetTracking} disabled={loading && refreshing}>
             إعادة تعيين
           </button>
         </div>
       </form>
 
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <div className="status-banner error track-order-status-banner" role="alert">{error}</div>}
 
       {result && (
-        <div className="form-container customer-card customer-result-card">
+        <div className="form-container customer-card customer-result-card track-order-result-card-shell">
+          <div className="my-orders-stats-grid track-order-stats-grid">
+            <div className="my-orders-stat-card track-order-stat-card">
+              <span>حالة الطلب</span>
+              <strong>{statusLabel(result.status)}</strong>
+            </div>
+            <div className="my-orders-stat-card track-order-stat-card">
+              <span>حالة الدفع</span>
+              <strong>{paymentLabel(result.paymentStatus)}</strong>
+            </div>
+            <div className="my-orders-stat-card track-order-stat-card">
+              <span>الإجمالي</span>
+              <strong>{formatAmount(result.total || 0)}</strong>
+            </div>
+          </div>
+
           <div className="track-order-result-head">
-            <h3 className="customer-result-title">نتيجة التتبع</h3>
+            <div className="track-order-title-block">
+              <h3 className="customer-result-title">نتيجة التتبع</h3>
+              <p>هذه آخر حالة مسجلة للطلب مع تفاصيل الدفع والفاتورة.</p>
+            </div>
             <div className="track-order-meta">
-              <div className="track-order-actions-inline">
+              <div className="track-order-actions-inline track-order-toolbar">
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary track-order-toolbar-btn"
                   onClick={() => fetchTrackingResult({ orderId: sanitizedOrderId, phone: sanitizedPhone, silent: true, clearPrevious: false })}
                   disabled={refreshing || loading}
                 >
@@ -878,21 +879,21 @@ export default function TrackOrderPage() {
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-secondary track-order-copy-btn${orderIdCopied ? ' success' : ''}`}
+                  className={`btn btn-secondary track-order-copy-btn track-order-toolbar-btn${orderIdCopied ? ' success' : ''}`}
                   onClick={handleCopyOrderId}
                 >
                   {orderIdCopied ? '✅ تم نسخ رقم الطلب' : '📋 نسخ رقم الطلب'}
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-secondary track-order-copy-btn${trackLinkShared ? ' success' : ''}`}
+                  className={`btn btn-secondary track-order-copy-btn track-order-toolbar-btn${trackLinkShared ? ' success' : ''}`}
                   onClick={handleShareTrackingLink}
                 >
                   {trackLinkShared ? '✅ تمت مشاركة الرابط' : '📤 مشاركة رابط التتبع'}
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-secondary track-order-copy-btn${summaryCopied ? ' success' : ''}`}
+                  className={`btn btn-secondary track-order-copy-btn track-order-toolbar-btn${summaryCopied ? ' success' : ''}`}
                   onClick={handleCopyStatusSummary}
                   disabled={isCopyingSummary}
                 >
@@ -900,38 +901,40 @@ export default function TrackOrderPage() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary track-order-toolbar-btn"
                   onClick={handleExportPdf}
                   disabled={isExportingPdf}
                 >
                   {isExportingPdf ? 'جاري التحضير...' : '🧾 تصدير الفاتورة PDF'}
                 </button>
               </div>
-              <label className="track-order-auto">
-                <input
-                  type="checkbox"
-                  checked={autoRefreshEnabled}
-                  onChange={(event) => setAutoRefreshEnabled(event.target.checked)}
-                />
-                <span>تحديث تلقائي كل 30 ثانية</span>
-              </label>
-              <label className="track-order-auto">
-                <input
-                  type="checkbox"
-                  checked={notifyOnChange}
-                  onChange={(event) => setNotifyOnChange(event.target.checked)}
-                />
-                <span>تنبيه عند تغيّر الحالة</span>
-              </label>
-              {lastUpdatedAt && (
-                <small className="track-order-updated-at">آخر تحديث: {formatTime(lastUpdatedAt, { locale })}</small>
-              )}
-              {result && isTerminalStatus(result.status) && (
-                <small className="track-order-updated-at">التحديث التلقائي متوقف لأن حالة الطلب نهائية.</small>
-              )}
-              {statusNotice && (
-                <p className="track-order-status-notice" role="status" aria-live="polite">{statusNotice}</p>
-              )}
+              <div className="track-order-preferences-panel">
+                <label className="track-order-auto">
+                  <input
+                    type="checkbox"
+                    checked={autoRefreshEnabled}
+                    onChange={(event) => setAutoRefreshEnabled(event.target.checked)}
+                  />
+                  <span>تحديث تلقائي كل 30 ثانية</span>
+                </label>
+                <label className="track-order-auto">
+                  <input
+                    type="checkbox"
+                    checked={notifyOnChange}
+                    onChange={(event) => setNotifyOnChange(event.target.checked)}
+                  />
+                  <span>تنبيه عند تغيّر الحالة</span>
+                </label>
+                {lastUpdatedAt && (
+                  <small className="track-order-updated-at">آخر تحديث: {formatTime(lastUpdatedAt, { locale })}</small>
+                )}
+                {result && isTerminalStatus(result.status) && (
+                  <small className="track-order-updated-at">التحديث التلقائي متوقف لأن حالة الطلب نهائية.</small>
+                )}
+                {statusNotice && (
+                  <p className="track-order-status-notice" role="status" aria-live="polite">{statusNotice}</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="customer-result-grid">

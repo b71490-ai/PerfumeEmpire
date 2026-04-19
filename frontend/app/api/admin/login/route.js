@@ -22,9 +22,10 @@ export async function POST(req) {
       return NextResponse.json({ error: 'No token returned from backend' }, { status: 500 });
     }
 
-    const redirectTo = body.from || '/admin/dashboard';
-    const url = new URL(redirectTo, req.url);
-    const response = NextResponse.redirect(url);
+    const redirectTo = typeof body.from === 'string' && body.from.startsWith('/admin')
+      ? body.from
+      : '/admin/dashboard';
+    const response = NextResponse.json({ ok: true, redirectTo });
 
     // set the JWT token cookie (for frontend/admin UI)
     response.cookies.set('token', token, {

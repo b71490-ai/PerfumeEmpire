@@ -10975,6 +10975,251 @@ html, body { /* guard: prevent overlay from creating horizontal scroll */
   margin-top: 8px;
 }
 
+.track-order-page {
+  max-width: 1040px;
+}
+
+.track-order-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.track-order-header p {
+  max-width: 760px;
+  margin: 0 auto;
+  color: #475569;
+  line-height: 1.9;
+}
+
+.track-order-hero-note {
+  max-width: 780px;
+  margin: 12px auto 0;
+}
+
+.track-order-form-card,
+.track-order-result-card-shell {
+  max-width: 920px;
+}
+
+.track-order-form-grid {
+  align-items: start;
+}
+
+.track-order-field-group {
+  margin-bottom: 0;
+}
+
+.track-order-verified-note {
+  margin: 16px 0 0;
+}
+
+.track-order-actions-row {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.track-order-submit-btn,
+.track-order-reset-btn {
+  min-width: 170px;
+  min-height: 54px;
+  border-radius: 16px;
+}
+
+.track-order-status-banner {
+  max-width: 920px;
+  margin: 12px auto 0;
+}
+
+.track-order-stats-grid {
+  margin-bottom: 16px;
+}
+
+.track-order-stat-card strong {
+  font-size: 1rem;
+}
+
+.track-order-title-block p {
+  margin: -4px 0 0;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.track-order-toolbar {
+  justify-content: flex-start;
+}
+
+.track-order-toolbar-btn {
+  min-height: 46px;
+  border-radius: 14px;
+}
+
+.track-order-preferences-panel {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.track-order-meta {
+  min-width: min(100%, 360px);
+  flex: 1 1 320px;
+}
+
+.track-order-status-notice {
+  max-width: none;
+}
+
+.my-orders-page {
+  max-width: 1040px;
+}
+
+.my-orders-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.my-orders-header p {
+  max-width: 720px;
+  margin: 0 auto;
+  color: #475569;
+  line-height: 1.9;
+}
+
+.my-orders-intro-note {
+  max-width: 760px;
+  margin: 12px auto 0;
+}
+
+.my-orders-form-card {
+  max-width: 880px;
+}
+
+.my-orders-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.my-orders-phone-group,
+.my-orders-otp-group {
+  margin-bottom: 0;
+}
+
+.my-orders-phone-group input,
+.my-orders-otp-group input {
+  text-align: right;
+}
+
+.my-orders-verified-note {
+  margin: 16px 0 0;
+}
+
+.my-orders-actions-row {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.my-orders-submit-btn,
+.my-orders-reset-btn {
+  min-width: 148px;
+  min-height: 54px;
+  border-radius: 16px;
+  font-size: 1.05rem;
+}
+
+.my-orders-status-banner {
+  max-width: 880px;
+  margin: 12px auto 0;
+}
+
+.my-orders-results-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.my-orders-result-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.07);
+}
+
+.my-orders-result-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.my-orders-result-top h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.2rem;
+}
+
+.my-orders-result-top p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.my-orders-result-price {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #111827, #0f172a);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+}
+
+.my-orders-result-grid {
+  margin-top: 8px;
+}
+
+.my-orders-items-list {
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.my-orders-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.my-orders-item-row span {
+  color: #334155;
+}
+
+.my-orders-item-row strong {
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.my-orders-empty-state {
+  text-align: center;
+}
+
+.my-orders-empty-state h3 {
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.my-orders-empty-state p {
+  margin: 0;
+  color: #64748b;
+}
+
 .customer-footer-actions {
   margin-top: 16px;
 }
@@ -11972,6 +12217,56 @@ html, body { /* guard: prevent overlay from creating horizontal scroll */
 
   .my-orders-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .my-orders-form-grid,
+  .my-orders-result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .track-order-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .track-order-actions-row {
+    flex-direction: column-reverse;
+  }
+
+  .track-order-submit-btn,
+  .track-order-reset-btn {
+    width: 100%;
+  }
+
+  .track-order-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .track-order-toolbar-btn {
+    width: 100%;
+  }
+
+  .my-orders-result-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .my-orders-result-price {
+    width: 100%;
+  }
+
+  .my-orders-actions-row {
+    flex-direction: column-reverse;
+  }
+
+  .my-orders-submit-btn,
+  .my-orders-reset-btn {
+    width: 100%;
+  }
+
+  .my-orders-item-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .my-orders-inline-actions {

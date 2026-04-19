@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useState } from 'react'
 import Toast from '@/components/Toast'
-import { fetchCustomerOrders, fetchStoreSettings, requestCustomerOtp, verifyCustomerOtp } from '@/lib/api'
+import { fetchCustomerOrders, requestCustomerOtp, verifyCustomerOtp } from '@/lib/api'
 import { useToast } from '@/hooks/useToast'
 import { digitsOnly, formatMoney, getUserLocale, formatDateTime } from '@/lib/intl'
-
-const CUSTOMER_PHONE_KEY = 'customerPhoneLookup'
 
 export default function MyOrdersClient() {
   const [phone, setPhone] = useState('')
@@ -21,15 +20,34 @@ export default function MyOrdersClient() {
   const { toast, showToast, closeToast } = useToast()
   const locale = getUserLocale('ar-SA')
   const formatAmount = (v) => formatMoney(v || 0, 'ر.س', { locale })
+  const sanitizedPhone = digitsOnly(phone || '').trim()
+  const normalizedOtpCode = digitsOnly(otpCode || '').trim()
+  const canSubmit = !loading && sanitizedPhone.length > 0 && (!otpRequested || otpAccessToken || normalizedOtpCode.length === 6)
 
-  useEffect(() => {
-    try { const saved = localStorage.getItem(CUSTOMER_PHONE_KEY); if (saved) setPhone(saved) } catch {}
-  }, [])
+  const statusLabel = (value) => {
+    switch (String(value || '').toLowerCase()) {
+      case 'pending': return 'قيد التجهيز'
+      case 'processing': return 'قيد المعالجة'
+      case 'shipped': return 'قيد الشحن'
+      case 'completed': return 'تم التسليم'
+      case 'cancelled': return 'ملغي'
+      default: return value || 'غير محدد'
+    }
+  }
+
+  const paymentLabel = (value) => {
+    switch (String(value || '').toLowerCase()) {
+      case 'pending': return 'بانتظار الدفع'
+      case 'paid': return 'مدفوع'
+      case 'refunded': return 'مسترد'
+      default: return value || 'غير محدد'
+    }
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault()
     const p = digitsOnly(phone || '').trim(); if (!p) return
-    setPhone(p); try { localStorage.setItem(CUSTOMER_PHONE_KEY, p) } catch {}
+    setPhone(p)
     setLoading(true); setError('')
     let accessToken = otpAccessToken
     try {
@@ -65,34 +83,150 @@ export default function MyOrdersClient() {
 
   const reset = () => { setPhone(''); setOrders([]); setError(''); setHasSearched(false); setOtpRequested(false); setOtpCode(''); setOtpAccessToken(''); setOtpExpiresAt(null); showToast('info','تمت إعادة التعيين') }
 
+  const totalSpent = orders.reduce((sum, order) => sum + Number(order?.total || 0), 0)
+  const latestOrder = orders[0]
+
   return (
     <main className="container customer-page-shell my-orders-page">
       <Toast toast={toast} onClose={closeToast} />
-      <div className="form-container customer-card">
+      <div className="header-section customer-page-header my-orders-header">
         <h1>الطلبات</h1>
-        <form onSubmit={onSubmit}>
-          <label htmlFor="phone">رقم الهاتف</label>
-          <input id="phone" value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="أدخل رقم الهاتف" />
-          <div className="actions">
-            <button type="submit" className="btn btn-primary" disabled={loading}>{otpRequested ? 'تحقق' : 'ابحث'}</button>
-            <button type="button" className="btn btn-secondary" onClick={reset}>إعادة</button>
-          </div>
-        </form>
-
-        {error && <div className="status-banner error">{error}</div>}
-        {loading && <div>جاري التحميل...</div>}
-        {hasSearched && !loading && orders.length === 0 && <div className="no-results">لا توجد طلبات لرقم {phone}</div>}
-
-        {orders.length > 0 && (
-          <ul className="orders-list">
-            {orders.map(o => (
-              <li key={o.id} className="order-item">
-                <div>طلب #{o.id} — {formatAmount(o.total)}</div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <p>اعرض جميع طلباتك باستخدام رقم الهاتف المرتبط بالشراء، مع تحقق سريع لحماية بياناتك.</p>
+        <div className="track-order-intro-note my-orders-intro-note">
+          <strong>مهم:</strong> بعد إدخال رقم الهاتف سنرسل رمز تحقق لمرة واحدة، وبعدها ستظهر قائمة طلباتك مباشرة.
+        </div>
       </div>
+
+      <form onSubmit={onSubmit} className="form-container customer-card customer-form-card my-orders-form-card" aria-busy={loading}>
+        <div className="customer-form-grid my-orders-form-grid">
+          <div className="form-group my-orders-phone-group">
+            <label htmlFor="phone">رقم الهاتف</label>
+            <input
+              id="phone"
+              type="tel"
+              inputMode="numeric"
+              dir="ltr"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="أدخل رقم الهاتف"
+              disabled={loading}
+            />
+            <small className="checkout-helper-note">استخدم نفس الرقم الذي أدخلته أثناء إتمام الطلب.</small>
+          </div>
+
+          {otpRequested && !otpAccessToken && (
+            <div className="form-group my-orders-otp-group">
+              <label htmlFor="otpCode">رمز التحقق</label>
+              <input
+                id="otpCode"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                dir="ltr"
+                value={otpCode}
+                onChange={(e) => {
+                  setOtpCode(digitsOnly(e.target.value || '').slice(0, 6))
+                  setError('')
+                }}
+                placeholder="أدخل الرمز المكوّن من 6 أرقام"
+                disabled={loading}
+              />
+              <small className="checkout-helper-note">تم إرسال الرمز إلى الرقم المدخل. {otpExpiresAt ? `ينتهي تقريبًا ${formatDateTime(otpExpiresAt, { locale })}` : ''}</small>
+            </div>
+          )}
+        </div>
+
+        {otpAccessToken && (
+          <p className="checkout-helper-note my-orders-verified-note" role="status">✅ تم التحقق بنجاح. يمكنك الآن مشاهدة الطلبات المرتبطة بهذا الرقم.</p>
+        )}
+
+        <div className="customer-actions-row my-orders-actions-row">
+          <button type="submit" className="btn btn-primary my-orders-submit-btn" disabled={!canSubmit} aria-disabled={!canSubmit}>
+            {loading ? 'جاري التحميل...' : otpRequested && !otpAccessToken ? 'تحقق' : 'ابحث'}
+          </button>
+          <button type="button" className="btn btn-secondary my-orders-reset-btn" onClick={reset} disabled={loading}>إعادة</button>
+        </div>
+      </form>
+
+      {error && <div className="status-banner error my-orders-status-banner">{error}</div>}
+      {loading && <div className="status-banner info my-orders-status-banner">جاري تحميل الطلبات...</div>}
+
+      {orders.length > 0 && (
+        <section className="customer-orders-result">
+          <div className="my-orders-stats-grid">
+            <div className="my-orders-stat-card">
+              <span>إجمالي الطلبات</span>
+              <strong>{orders.length}</strong>
+            </div>
+            <div className="my-orders-stat-card">
+              <span>إجمالي المشتريات</span>
+              <strong>{formatAmount(totalSpent)}</strong>
+            </div>
+            <div className="my-orders-stat-card">
+              <span>آخر طلب</span>
+              <strong>{latestOrder ? `#${latestOrder.id}` : '-'}</strong>
+            </div>
+          </div>
+
+          <div className="my-orders-results-stack">
+            {orders.map((order) => (
+              <article key={order.id} className="my-orders-result-card">
+                <div className="my-orders-result-top">
+                  <div>
+                    <h3>طلب #{order.id}</h3>
+                    <p>{formatDateTime(order.createdAt, { locale })}</p>
+                  </div>
+                  <div className="my-orders-result-price">{formatAmount(order.total)}</div>
+                </div>
+
+                <div className="customer-result-grid my-orders-result-grid">
+                  <div className="result-item">
+                    <span>حالة الطلب</span>
+                    <strong>{statusLabel(order.status)}</strong>
+                  </div>
+                  <div className="result-item">
+                    <span>حالة الدفع</span>
+                    <strong>{paymentLabel(order.paymentStatus)}</strong>
+                  </div>
+                  <div className="result-item">
+                    <span>عدد المنتجات</span>
+                    <strong>{Array.isArray(order.items) ? order.items.length : 0}</strong>
+                  </div>
+                  <div className="result-item">
+                    <span>العنوان</span>
+                    <strong>{order.address || 'غير متوفر'}</strong>
+                  </div>
+                </div>
+
+                {Array.isArray(order.items) && order.items.length > 0 && (
+                  <div className="mobile-order-items my-orders-items-list">
+                    {order.items.map((item) => (
+                      <div key={item.id || `${order.id}-${item.perfumeId}`} className="my-orders-item-row">
+                        <span>{item.name}</span>
+                        <strong>{item.quantity} × {formatAmount(item.price)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="my-orders-mobile-actions">
+                  <Link href={`/track-order?orderId=${order.id}`} className="btn-track-order-inline mobile-track-link">
+                    تتبع هذا الطلب
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {hasSearched && !loading && orders.length === 0 && (
+        <div className="form-container customer-card customer-empty-state my-orders-empty-state">
+          <h3>لا توجد طلبات لهذا الرقم</h3>
+          <p>تأكد من رقم الهاتف أو اطلب رمز تحقق جديد ثم أعد المحاولة.</p>
+        </div>
+      )}
     </main>
   )
 }
