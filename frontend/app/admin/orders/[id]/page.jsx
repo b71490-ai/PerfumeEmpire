@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Button from '@/components/Button'
 import { useAdmin } from '@/context/AdminContext'
-import { fetchOrderById, fetchOrderHistory, fetchStoreSettings } from '@/lib/api'
+import { fetchOrderById, fetchOrderHistory, fetchStoreSettings, fetchZatcaReadiness, previewZatcaInvoice, submitZatcaSandbox, validateZatcaInvoice } from '@/lib/api'
 import { digitsOnly, formatDateTime, getUserLocale, toEnglishDigits, formatMoney } from '@/lib/intl'
 
 export default function AdminOrderDetailsPage() {
@@ -16,6 +16,11 @@ export default function AdminOrderDetailsPage() {
   const [history, setHistory] = useState([])
   const [pageLoading, setPageLoading] = useState(true)
   const [currencySymbol, setCurrencySymbol] = useState('ر.س')
+  const [zatcaReadiness, setZatcaReadiness] = useState(null)
+  const [zatcaPreview, setZatcaPreview] = useState(null)
+  const [zatcaSubmitResult, setZatcaSubmitResult] = useState(null)
+  const [zatcaValidation, setZatcaValidation] = useState(null)
+  const [zatcaLoading, setZatcaLoading] = useState({ readiness: false, preview: false, validate: false, submit: false })
   const locale = getUserLocale('ar-SA')
 
   useEffect(() => {
@@ -51,6 +56,22 @@ export default function AdminOrderDetailsPage() {
     }
     load()
   }, [isAdmin, canViewOrders, id])
+
+  useEffect(() => {
+    const loadReadiness = async () => {
+      if (!isAdmin || !canViewOrders) return
+      setZatcaLoading(s => ({ ...s, readiness: true }))
+      try {
+        const readiness = await fetchZatcaReadiness()
+        setZatcaReadiness(readiness)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setZatcaLoading(s => ({ ...s, readiness: false }))
+      }
+    }
+    loadReadiness()
+  }, [isAdmin, canViewOrders])
 
   const timelineSteps = useMemo(() => {
     if (!order) return []
@@ -182,6 +203,55 @@ export default function AdminOrderDetailsPage() {
     return `tel:${normalized}`
   }
   const whatsappLink = (phone) => `https://wa.me/${digitsOnly(phone || '')}`
+
+  const runZatcaPreview = async () => {
+    if (!order?.id || zatcaLoading.preview) return
+    setZatcaLoading(s => ({ ...s, preview: true }))
+    setZatcaSubmitResult(null)
+    try {
+      const data = await previewZatcaInvoice(order.id)
+      setZatcaPreview(data || null)
+      setZatcaValidation(data?.validation || null)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setZatcaLoading(s => ({ ...s, preview: false }))
+    }
+  }
+
+  const runZatcaValidate = async () => {
+    if (!order?.id || zatcaLoading.validate) return
+    setZatcaLoading(s => ({ ...s, validate: true }))
+    try {
+      const data = await validateZatcaInvoice(order.id)
+      setZatcaValidation(data || null)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setZatcaLoading(s => ({ ...s, validate: false }))
+    }
+  }
+
+  const runZatcaSubmitSandbox = async () => {
+    if (!order?.id || zatcaLoading.submit) return
+    setZatcaLoading(s => ({ ...s, submit: true }))
+    try {
+      const data = await submitZatcaSandbox(order.id)
+      setZatcaSubmitResult(data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setZatcaLoading(s => ({ ...s, submit: false }))
+    }
+  }
+
+  const openZatcaXml = () => {
+    if (!zatcaPreview?.xml || typeof window === 'undefined') return
+    const blob = new Blob([zatcaPreview.xml], { type: 'application/xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener,noreferrer')
+    setTimeout(() => URL.revokeObjectURL(url), 1500)
+  }
 
   if (loading || pageLoading) return <div className="loading">جاري التحميل...</div>
   if (!isAdmin || !canViewOrders) return null
@@ -426,6 +496,65 @@ export default function AdminOrderDetailsPage() {
             <span className="stat-title">طريقة التوصيل</span>
             <strong className="stat-number order-detail-value">{getDeliveryMethodLabel(order.address)}</strong>
             <p className="order-detail-sub">حسب اختيار العميل أثناء الطلب</p>
+          </div>
+
+          <div className="stat-card stat-card-pro order-detail-card order-card-zatca">
+            <span className="stat-title">تكامل ZATCA</span>
+            <strong className="stat-number order-detail-value">{zatcaReadiness?.isReady ? 'جاهز للإرسال' : 'غير مكتمل'}</strong>
+            <p className="order-detail-sub">
+              {zatcaLoading.readiness ? 'جار فحص الجاهزية...' : `الوضع: ${zatcaReadiness?.environment || '-'}`}
+            </p>
+
+            {!!zatcaReadiness?.missingFields?.length && (
+              <p className="order-detail-sub zatca-missing-fields">الحقول الناقصة: {zatcaReadiness.missingFields.join('، ')}</p>
+            )}
+
+            <div className="header-actions zatca-actions">
+              <Button variant="secondary" onClick={runZatcaPreview} disabled={zatcaLoading.preview || !order?.id}>
+                {zatcaLoading.preview ? 'جار المعاينة...' : 'معاينة الفاتورة'}
+              </Button>
+              <Button variant="secondary" onClick={runZatcaValidate} disabled={zatcaLoading.validate || !order?.id}>
+                {zatcaLoading.validate ? 'جار التحقق...' : 'تحقق الامتثال'}
+              </Button>
+              <Button variant="primary" onClick={runZatcaSubmitSandbox} disabled={zatcaLoading.submit || !order?.id || !zatcaReadiness?.enabled}>
+                {zatcaLoading.submit ? 'جار الإرسال...' : 'إرسال Sandbox'}
+              </Button>
+            </div>
+
+            {zatcaValidation && (
+              <div className="zatca-validation-box">
+                <p className="order-detail-sub">نتيجة الامتثال: {zatcaValidation.isCompliant ? 'مطابق مبدئيًا' : 'غير مطابق'}</p>
+                {!!zatcaValidation.errors?.length && (
+                  <p className="order-detail-sub zatca-validation-errors">أخطاء: {zatcaValidation.errors.join(' | ')}</p>
+                )}
+                {!!zatcaValidation.warnings?.length && (
+                  <p className="order-detail-sub zatca-validation-warnings">تحذيرات: {zatcaValidation.warnings.join(' | ')}</p>
+                )}
+              </div>
+            )}
+
+            {zatcaPreview && (
+              <div className="zatca-preview-box">
+                <div className="summary-row">
+                  <span className="label">UUID</span>
+                  <span className="value">{zatcaPreview.invoiceUuid || '-'}</span>
+                </div>
+                <div className="summary-row">
+                  <span className="label">SHA256</span>
+                  <span className="value">{(zatcaPreview.xmlSha256 || '').slice(0, 14)}...</span>
+                </div>
+                <div className="header-actions zatca-actions">
+                  <Button variant="secondary" onClick={openZatcaXml}>فتح XML</Button>
+                </div>
+              </div>
+            )}
+
+            {zatcaSubmitResult && (
+              <div className="zatca-submit-box">
+                <p className="order-detail-sub">الحالة: {zatcaSubmitResult.ok ? 'نجاح' : 'فشل'} ({zatcaSubmitResult.httpStatusCode || 0})</p>
+                <p className="order-detail-sub">النقطة: {zatcaSubmitResult.endpoint || '-'}</p>
+              </div>
+            )}
           </div>
         </aside>
       </div>

@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
+const defaultApiTarget = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:5000'
+  : 'https://perfume-backend-wlk8.onrender.com'
+
 const apiTarget = String(
-  process.env.API_PROXY_TARGET || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'https://perfume-backend-wlk8.onrender.com'
+  process.env.API_PROXY_TARGET || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || defaultApiTarget
 ).replace(/\/+$/, '')
 
 const nextConfig = {

@@ -13,6 +13,7 @@ export default function Header() {
   const { isAdmin } = useAdmin()
   const cartCount = getCartCount()
   const [cartBadgeBump, setCartBadgeBump] = useState(false)
+  const [isScrollHidden, setIsScrollHidden] = useState(false)
   const isDataImage = (value) => typeof value === 'string' && value.startsWith('data:image/')
   const [settings, setSettings] = useState({
     logoIcon: '✨',
@@ -49,8 +50,55 @@ export default function Header() {
     return () => clearTimeout(timer)
   }, [cartCount])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    let lastY = window.scrollY || 0
+    let hidden = false
+
+    const applyHidden = (next) => {
+      if (hidden === next) return
+      hidden = next
+      setIsScrollHidden(next)
+    }
+
+    const onScroll = () => {
+      const isMobile = window.matchMedia('(max-width: 992px)').matches
+      if (!isMobile) {
+        applyHidden(false)
+        lastY = window.scrollY || 0
+        return
+      }
+
+      const currentY = window.scrollY || 0
+      if (currentY < 12) {
+        applyHidden(false)
+        lastY = currentY
+        return
+      }
+
+      const delta = currentY - lastY
+      if (delta > 6) {
+        applyHidden(true)
+      } else if (delta < -6) {
+        applyHidden(false)
+      }
+
+      lastY = currentY
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    onScroll()
+
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [])
+
   return (
-    <header className="main-header">
+    <header className={`main-header${isScrollHidden ? ' is-scroll-hidden' : ''}`}>
       <div className="header-container">
         <div className="header-brand">
           <Link href="/" className="header-logo">

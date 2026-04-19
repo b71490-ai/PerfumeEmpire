@@ -148,6 +148,36 @@ export async function submitContactMessage(payload) {
   return res.data;
 }
 
+export async function fetchZatcaReadiness() {
+  const res = await api.get('/admin/zatca/readiness');
+  return res.data;
+}
+
+export async function fetchZatcaConfig() {
+  const res = await api.get('/admin/zatca/config');
+  return res.data;
+}
+
+export async function updateZatcaConfig(payload) {
+  const res = await api.put('/admin/zatca/config', payload);
+  return res.data;
+}
+
+export async function previewZatcaInvoice(orderId) {
+  const res = await api.get(`/admin/zatca/invoice/${orderId}/preview`);
+  return res.data;
+}
+
+export async function validateZatcaInvoice(orderId) {
+  const res = await api.get(`/admin/zatca/invoice/${orderId}/validate`);
+  return res.data;
+}
+
+export async function submitZatcaSandbox(orderId) {
+  const res = await api.post(`/admin/zatca/invoice/${orderId}/submit-sandbox`);
+  return res.data;
+}
+
 export async function searchPerfumesByImage(formData, config = {}) {
   // Let axios set the Content-Type (including boundary) automatically
   // `config` may include `signal` (AbortController) or other axios config

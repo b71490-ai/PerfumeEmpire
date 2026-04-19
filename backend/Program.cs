@@ -7,6 +7,8 @@ using System.Text;
 using StackExchange.Redis;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using PerfumeEmpire.Configuration;
+using PerfumeEmpire.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +47,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
+
+// ZATCA integration settings + services (phase 1 foundation)
+builder.Services.Configure<ZatcaOptions>(builder.Configuration.GetSection(ZatcaOptions.SectionName));
+builder.Services.AddHttpClient<IZatcaService, ZatcaService>();
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -231,6 +237,46 @@ using (var scope = app.Services.CreateScope())
         }
     }
 
+    bool SqliteColumnExists(string tableName, string columnName)
+    {
+        try
+        {
+            using var connection = db.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                connection.Open();
+            }
+
+            using var command = connection.CreateCommand();
+            command.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                // PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk
+                var currentName = Convert.ToString(reader[1]) ?? string.Empty;
+                if (string.Equals(currentName, columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    void EnsureSqliteColumn(string tableName, string columnName, string alterSql)
+    {
+        if (!SqliteTableExists(tableName)) return;
+        if (SqliteColumnExists(tableName, columnName)) return;
+
+        db.Database.ExecuteSqlRaw(alterSql);
+        Console.WriteLine($"SQLite schema self-heal: added {tableName}.{columnName}");
+    }
+
     string SqliteResolveProductVersion()
     {
         try
@@ -303,6 +349,38 @@ using (var scope = app.Services.CreateScope())
             databaseReady = true;
             Console.WriteLine("SQLite schema bootstrapped via EnsureDeleted + EnsureCreated.");
         }
+    }
+
+    void EnsureSqliteRuntimeCompatibilitySchema()
+    {
+        if (!db.Database.IsSqlite()) return;
+
+        // Backfill columns commonly missing when local DB drifted from migrations.
+        EnsureSqliteColumn("Orders", "CustomerName", "ALTER TABLE \"Orders\" ADD COLUMN \"CustomerName\" TEXT NOT NULL DEFAULT '';" );
+        EnsureSqliteColumn("Orders", "Email", "ALTER TABLE \"Orders\" ADD COLUMN \"Email\" TEXT NOT NULL DEFAULT '';" );
+        EnsureSqliteColumn("Orders", "Phone", "ALTER TABLE \"Orders\" ADD COLUMN \"Phone\" TEXT NOT NULL DEFAULT '';" );
+        EnsureSqliteColumn("Orders", "Address", "ALTER TABLE \"Orders\" ADD COLUMN \"Address\" TEXT NOT NULL DEFAULT '';" );
+        EnsureSqliteColumn("Orders", "Subtotal", "ALTER TABLE \"Orders\" ADD COLUMN \"Subtotal\" TEXT NOT NULL DEFAULT '0';");
+        EnsureSqliteColumn("Orders", "Total", "ALTER TABLE \"Orders\" ADD COLUMN \"Total\" TEXT NOT NULL DEFAULT '0';");
+        EnsureSqliteColumn("Orders", "Status", "ALTER TABLE \"Orders\" ADD COLUMN \"Status\" INTEGER NOT NULL DEFAULT 0;");
+        EnsureSqliteColumn("Orders", "CreatedAt", "ALTER TABLE \"Orders\" ADD COLUMN \"CreatedAt\" TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z';");
+        EnsureSqliteColumn("Orders", "Discount", "ALTER TABLE \"Orders\" ADD COLUMN \"Discount\" TEXT NOT NULL DEFAULT '0';");
+        EnsureSqliteColumn("Orders", "Shipping", "ALTER TABLE \"Orders\" ADD COLUMN \"Shipping\" TEXT NOT NULL DEFAULT '0';");
+        EnsureSqliteColumn("Orders", "Vat", "ALTER TABLE \"Orders\" ADD COLUMN \"Vat\" TEXT NOT NULL DEFAULT '0';");
+        EnsureSqliteColumn("Orders", "Latitude", "ALTER TABLE \"Orders\" ADD COLUMN \"Latitude\" REAL NULL;");
+        EnsureSqliteColumn("Orders", "Longitude", "ALTER TABLE \"Orders\" ADD COLUMN \"Longitude\" REAL NULL;");
+        EnsureSqliteColumn("Orders", "DeliveryNotes", "ALTER TABLE \"Orders\" ADD COLUMN \"DeliveryNotes\" TEXT NULL;");
+        EnsureSqliteColumn("Orders", "PaymentStatus", "ALTER TABLE \"Orders\" ADD COLUMN \"PaymentStatus\" INTEGER NOT NULL DEFAULT 0;");
+        EnsureSqliteColumn("Orders", "PaymentMethod", "ALTER TABLE \"Orders\" ADD COLUMN \"PaymentMethod\" TEXT NOT NULL DEFAULT 'cash_on_delivery';");
+        EnsureSqliteColumn("Orders", "StockRestored", "ALTER TABLE \"Orders\" ADD COLUMN \"StockRestored\" INTEGER NOT NULL DEFAULT 0;");
+
+        EnsureSqliteColumn("OrderItems", "OrderId", "ALTER TABLE \"OrderItems\" ADD COLUMN \"OrderId\" INTEGER NOT NULL DEFAULT 0;");
+        EnsureSqliteColumn("OrderItems", "PerfumeId", "ALTER TABLE \"OrderItems\" ADD COLUMN \"PerfumeId\" INTEGER NOT NULL DEFAULT 0;");
+        EnsureSqliteColumn("OrderItems", "Name", "ALTER TABLE \"OrderItems\" ADD COLUMN \"Name\" TEXT NOT NULL DEFAULT '';" );
+        EnsureSqliteColumn("OrderItems", "Price", "ALTER TABLE \"OrderItems\" ADD COLUMN \"Price\" TEXT NOT NULL DEFAULT '0';");
+        EnsureSqliteColumn("OrderItems", "Quantity", "ALTER TABLE \"OrderItems\" ADD COLUMN \"Quantity\" INTEGER NOT NULL DEFAULT 0;");
+
+        EnsureSqliteColumn("Perfumes", "Stock", "ALTER TABLE \"Perfumes\" ADD COLUMN \"Stock\" INTEGER NOT NULL DEFAULT 0;");
     }
 
     // Apply any pending EF Core migrations. This is safer for production than
@@ -385,6 +463,15 @@ using (var scope = app.Services.CreateScope())
     catch (Exception sqliteSchemaEx)
     {
         Console.Error.WriteLine("SQLite schema bootstrap failed: " + sqliteSchemaEx);
+    }
+
+    try
+    {
+        EnsureSqliteRuntimeCompatibilitySchema();
+    }
+    catch (Exception sqliteCompatEx)
+    {
+        Console.Error.WriteLine("SQLite compatibility schema ensure failed: " + sqliteCompatEx);
     }
 
     if (db.Database.IsSqlite())

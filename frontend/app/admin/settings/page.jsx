@@ -7,7 +7,7 @@ import Image from 'next/image'
 import Button from '@/components/Button'
 import Accordion from '@/components/Accordion'
 import { useAdmin } from '@/context/AdminContext'
-import { fetchStoreSettings, updateStoreSettings } from '@/lib/api'
+import { fetchStoreSettings, updateStoreSettings, fetchZatcaReadiness, fetchZatcaConfig, updateZatcaConfig } from '@/lib/api'
 
 export default function AdminSettingsPage() {
   const { isAdmin, loading, canManageSettings } = useAdmin()
@@ -75,6 +75,22 @@ export default function AdminSettingsPage() {
   const [saveMessage, setSaveMessage] = useState(null)
   const [showPaymentPublicKey, setShowPaymentPublicKey] = useState(false)
   const [showPaymentSecretKey, setShowPaymentSecretKey] = useState(false)
+  const [zatcaReadiness, setZatcaReadiness] = useState(null)
+  const [zatcaLoading, setZatcaLoading] = useState(false)
+  const [zatcaError, setZatcaError] = useState('')
+  const [zatcaSaving, setZatcaSaving] = useState(false)
+  const [zatcaForm, setZatcaForm] = useState({
+    enabled: false,
+    environment: 'sandbox',
+    baseUrl: '',
+    submitPath: '/simulation/invoices',
+    httpTimeoutSeconds: 30,
+    deviceId: '',
+    solutionName: 'PerfumeEmpire',
+    apiSecret: '',
+    certificatePem: '',
+    privateKeyPem: ''
+  })
   const initialFormRef = useRef(null)
 
   const showToast = (message, type = 'success') => {
@@ -214,6 +230,51 @@ export default function AdminSettingsPage() {
       }
     }
     load()
+  }, [isAdmin, canManageSettings])
+
+  useEffect(() => {
+    const loadZatcaReadiness = async () => {
+      if (!isAdmin || !canManageSettings) return
+      try {
+        setZatcaLoading(true)
+        setZatcaError('')
+        const data = await fetchZatcaReadiness()
+        setZatcaReadiness(data || null)
+      } catch (e) {
+        console.error(e)
+        setZatcaError('تعذر قراءة حالة ربط ZATCA. تأكد من صلاحية عرض التقارير.')
+      } finally {
+        setZatcaLoading(false)
+      }
+    }
+
+    loadZatcaReadiness()
+  }, [isAdmin, canManageSettings])
+
+  useEffect(() => {
+    const loadZatcaConfig = async () => {
+      if (!isAdmin || !canManageSettings) return
+      try {
+        const data = await fetchZatcaConfig()
+        if (!data) return
+        setZatcaForm({
+          enabled: Boolean(data.enabled),
+          environment: data.environment || 'sandbox',
+          baseUrl: data.baseUrl || '',
+          submitPath: data.submitPath || '/simulation/invoices',
+          httpTimeoutSeconds: Number(data.httpTimeoutSeconds || 30),
+          deviceId: data.deviceId || '',
+          solutionName: data.solutionName || 'PerfumeEmpire',
+          apiSecret: data.apiSecret || '',
+          certificatePem: data.certificatePem || '',
+          privateKeyPem: data.privateKeyPem || ''
+        })
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    loadZatcaConfig()
   }, [isAdmin, canManageSettings])
 
   // Enhance inputs: create floating labels by moving label text into container dataset
@@ -475,7 +536,64 @@ export default function AdminSettingsPage() {
     }
   }, [form.paymentEnabled, form.paymentProvider, form.paymentPublicKey, form.paymentSecretKey, form.paymentSandboxMode])
 
+  const zatcaFieldRows = useMemo(() => {
+    const fromForm = {
+      enabled: Boolean(zatcaForm.enabled),
+      environment: Boolean(String(zatcaForm.environment || '').trim()),
+      baseUrl: Boolean(String(zatcaForm.baseUrl || '').trim()),
+      submitPath: Boolean(String(zatcaForm.submitPath || '').trim()),
+      timeout: Number(zatcaForm.httpTimeoutSeconds || 0) > 0,
+      deviceId: Boolean(String(zatcaForm.deviceId || '').trim()),
+      solutionName: Boolean(String(zatcaForm.solutionName || '').trim()),
+      apiSecret: Boolean(String(zatcaForm.apiSecret || '').trim()),
+      certificatePem: Boolean(String(zatcaForm.certificatePem || '').trim()),
+      privateKeyPem: Boolean(String(zatcaForm.privateKeyPem || '').trim())
+    }
+
+    return [
+      { key: 'Zatca:Enabled', env: 'Zatca__Enabled', ready: fromForm.enabled },
+      { key: 'Zatca:Environment', env: 'Zatca__Environment', ready: fromForm.environment },
+      { key: 'Zatca:BaseUrl', env: 'Zatca__BaseUrl', ready: fromForm.baseUrl },
+      { key: 'Zatca:SubmitPath', env: 'Zatca__SubmitPath', ready: fromForm.submitPath },
+      { key: 'Zatca:HttpTimeoutSeconds', env: 'Zatca__HttpTimeoutSeconds', ready: fromForm.timeout },
+      { key: 'Zatca:DeviceId', env: 'Zatca__DeviceId', ready: fromForm.deviceId },
+      { key: 'Zatca:SolutionName', env: 'Zatca__SolutionName', ready: fromForm.solutionName },
+      { key: 'Zatca:ApiSecret', env: 'Zatca__ApiSecret', ready: fromForm.apiSecret },
+      { key: 'Zatca:CertificatePem', env: 'Zatca__CertificatePem', ready: fromForm.certificatePem },
+      { key: 'Zatca:PrivateKeyPem', env: 'Zatca__PrivateKeyPem', ready: fromForm.privateKeyPem }
+    ]
+  }, [zatcaForm])
+
   const isPaymentConfigBlockingSave = form.paymentEnabled && paymentConfigState.level !== 'success'
+
+  const onZatcaChange = (e) => {
+    const { name, value } = e.target
+    if (name === 'enabled') {
+      setZatcaForm(prev => ({ ...prev, enabled: value === 'true' }))
+      return
+    }
+    if (name === 'httpTimeoutSeconds') {
+      setZatcaForm(prev => ({ ...prev, httpTimeoutSeconds: Number(value || 30) }))
+      return
+    }
+    setZatcaForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const onSaveZatca = async () => {
+    try {
+      setZatcaSaving(true)
+      await updateZatcaConfig(zatcaForm)
+      showToast('تم حفظ إعدادات ZATCA')
+      const readiness = await fetchZatcaReadiness()
+      setZatcaReadiness(readiness || null)
+      setZatcaError('')
+    } catch (e) {
+      console.error(e)
+      showToast('تعذر حفظ إعدادات ZATCA', 'error')
+    } finally {
+      setZatcaSaving(false)
+    }
+  }
 
   if (loading || pageLoading) return <div className="loading">جاري التحميل...</div>
   if (!isAdmin || !canManageSettings) return null
@@ -803,6 +921,106 @@ export default function AdminSettingsPage() {
                   <button type="button" className="btn-action btn-view" onClick={() => setShowPaymentSecretKey((prev) => !prev)}>
                     {showPaymentSecretKey ? 'إخفاء' : 'إظهار'}
                   </button>
+                </div>
+              </>
+            )}
+          </Accordion>
+
+          <Accordion title="🔗 ربط ZATCA">
+            <div className="admin-settings-payment-state neutral">
+              <strong>حالة الربط</strong>
+              <span>
+                {zatcaLoading
+                  ? 'جار فحص الحالة...'
+                  : zatcaError
+                    ? zatcaError
+                    : zatcaReadiness?.isReady
+                      ? 'الربط مكتمل مبدئيًا ويمكن تجربة الإرسال.'
+                      : 'الربط غير مكتمل، راجع الحقول الناقصة أدناه.'}
+              </span>
+            </div>
+
+            {!zatcaLoading && (
+              <>
+                <div className="admin-zatca-overview">
+                  <div>
+                    <span className="muted">التفعيل</span>
+                    <strong>{zatcaReadiness ? (zatcaReadiness.enabled ? 'مفعّل' : 'غير مفعّل') : 'غير متاح'}</strong>
+                  </div>
+                  <div>
+                    <span className="muted">البيئة</span>
+                    <strong>{zatcaReadiness?.environment || 'غير متاح'}</strong>
+                  </div>
+                  <div>
+                    <span className="muted">الجاهزية</span>
+                    <strong>{zatcaReadiness ? (zatcaReadiness.isReady ? 'جاهز' : 'غير جاهز') : 'غير متاح'}</strong>
+                  </div>
+                </div>
+
+                <div className="admin-zatca-table" role="table" aria-label="إعدادات ربط ZATCA">
+                  <div className="admin-zatca-table-head" role="row">
+                    <span role="columnheader">المفتاح</span>
+                    <span role="columnheader">متغير البيئة</span>
+                    <span role="columnheader">الحالة</span>
+                  </div>
+                  {zatcaFieldRows.map((row) => (
+                    <div key={row.key} className="admin-zatca-table-row" role="row">
+                      <span role="cell">{row.key}</span>
+                      <span role="cell">{row.env}</span>
+                      <span
+                        role="cell"
+                        className={row.ready === true ? 'zatca-ok' : row.ready === false ? 'zatca-missing' : 'zatca-unknown'}
+                      >
+                        {row.ready === true ? 'مكتمل' : row.ready === false ? 'ناقص' : 'غير متاح'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {!!zatcaReadiness?.missingFields?.length && (
+                  <small className="admin-settings-save-hint">الحقول الناقصة: {zatcaReadiness.missingFields.join('، ')}</small>
+                )}
+
+                <div className="admin-zatca-editor">
+                  <label htmlFor="zatcaEnabled">تفعيل الربط</label>
+                  <select id="zatcaEnabled" name="enabled" value={String(zatcaForm.enabled)} onChange={onZatcaChange}>
+                    <option value="false">غير مفعّل</option>
+                    <option value="true">مفعّل</option>
+                  </select>
+
+                  <label htmlFor="zatcaEnvironment">البيئة</label>
+                  <select id="zatcaEnvironment" name="environment" value={zatcaForm.environment} onChange={onZatcaChange}>
+                    <option value="sandbox">sandbox</option>
+                    <option value="production">production</option>
+                  </select>
+
+                  <label htmlFor="zatcaBaseUrl">Base URL</label>
+                  <input id="zatcaBaseUrl" name="baseUrl" value={zatcaForm.baseUrl} onChange={onZatcaChange} placeholder="https://..." dir="ltr" />
+
+                  <label htmlFor="zatcaSubmitPath">Submit Path</label>
+                  <input id="zatcaSubmitPath" name="submitPath" value={zatcaForm.submitPath} onChange={onZatcaChange} dir="ltr" />
+
+                  <label htmlFor="zatcaTimeout">Timeout Seconds</label>
+                  <input id="zatcaTimeout" name="httpTimeoutSeconds" type="number" min="5" max="120" value={zatcaForm.httpTimeoutSeconds} onChange={onZatcaChange} dir="ltr" />
+
+                  <label htmlFor="zatcaDeviceId">Device ID</label>
+                  <input id="zatcaDeviceId" name="deviceId" value={zatcaForm.deviceId} onChange={onZatcaChange} dir="ltr" />
+
+                  <label htmlFor="zatcaSolutionName">Solution Name</label>
+                  <input id="zatcaSolutionName" name="solutionName" value={zatcaForm.solutionName} onChange={onZatcaChange} dir="ltr" />
+
+                  <label htmlFor="zatcaApiSecret">API Secret</label>
+                  <input id="zatcaApiSecret" name="apiSecret" value={zatcaForm.apiSecret} onChange={onZatcaChange} dir="ltr" />
+
+                  <label htmlFor="zatcaCertificatePem">Certificate PEM</label>
+                  <textarea id="zatcaCertificatePem" name="certificatePem" rows={3} value={zatcaForm.certificatePem} onChange={onZatcaChange} dir="ltr" />
+
+                  <label htmlFor="zatcaPrivateKeyPem">Private Key PEM</label>
+                  <textarea id="zatcaPrivateKeyPem" name="privateKeyPem" rows={3} value={zatcaForm.privateKeyPem} onChange={onZatcaChange} dir="ltr" />
+
+                  <Button variant="primary" type="button" onClick={onSaveZatca} disabled={zatcaSaving}>
+                    {zatcaSaving ? 'جار الحفظ...' : 'حفظ إعدادات ZATCA'}
+                  </Button>
                 </div>
               </>
             )}

@@ -191,6 +191,51 @@ export default function Shop() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined
+
+    let lastY = window.scrollY || 0
+    let hidden = false
+
+    const applyHidden = (next) => {
+      if (hidden === next) return
+      hidden = next
+      document.body.classList.toggle('shop-header-hidden', next)
+    }
+
+    const onScroll = () => {
+      const isMobileOrTablet = window.matchMedia('(max-width: 992px)').matches
+      if (!isMobileOrTablet) {
+        applyHidden(false)
+        lastY = window.scrollY || 0
+        return
+      }
+
+      const currentY = window.scrollY || 0
+      if (currentY < 20) {
+        applyHidden(false)
+        lastY = currentY
+        return
+      }
+
+      const delta = currentY - lastY
+      if (delta > 6) applyHidden(true)
+      else if (delta < -6) applyHidden(false)
+
+      lastY = currentY
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    onScroll()
+
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      document.body.classList.remove('shop-header-hidden')
+    }
+  }, [])
+
+  useEffect(() => {
     try {
       const dismissed = window.localStorage.getItem('first-order-popup-dismissed')
       if (!dismissed) {
