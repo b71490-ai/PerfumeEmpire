@@ -15096,5 +15096,66 @@ html {
   display: none !important;
 }
 
+/* Final lock: keep header shortcuts in a single professional row on mobile */
+@media (max-width: 992px) {
+  .main-header .header-nav {
+    display: flex !important;
+    grid-template-columns: none !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 0.42rem !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .main-header .header-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .main-header .header-nav .nav-item {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 42px !important;
+    white-space: nowrap !important;
+    scroll-snap-align: start;
+  }
+
+  .main-header .header-nav.header-nav--single-row {
+    display: flex !important;
+    grid-template-columns: none !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 0.42rem !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .main-header .header-nav.header-nav--single-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .main-header .header-nav.header-nav--single-row .nav-item {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 42px !important;
+    white-space: nowrap !important;
+    scroll-snap-align: start;
+  }
+}
+
 
 

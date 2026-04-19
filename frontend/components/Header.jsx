@@ -8,6 +8,7 @@ import { useCart } from '@/context/CartContext'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useAdmin } from '@/context/AdminContext'
 import { fetchStoreSettings } from '@/lib/api'
+import { Store, Phone, PackageSearch, ReceiptText, ScrollText, ShieldCheck, Heart, ShoppingCart, SlidersHorizontal } from 'lucide-react'
 
 export default function Header() {
   const { getCartCount } = useCart()
@@ -99,44 +100,44 @@ export default function Header() {
             <ThemeToggle />
           </div>
         </div>
-        <nav className="header-nav">
+        <nav className="header-nav header-nav--single-row">
           <Link href="/shop" className="nav-item">
-            <span>🛍️</span>
+            <span><Store size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>المتجر</span>
           </Link>
           
           <Link href="/contact" className="nav-item minor">
-            <span>📞</span>
+            <span><Phone size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>اتصل بنا</span>
           </Link>
 
           <Link href="/track-order" className="nav-item">
-            <span>📦</span>
+            <span><PackageSearch size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>تتبع الطلب</span>
           </Link>
 
           <Link href="/my-orders" className="nav-item">
-            <span>🧾</span>
+            <span><ReceiptText size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>طلباتي</span>
           </Link>
 
           <Link href="/policies/shipping-returns" className="nav-item minor">
-            <span>📜</span>
+            <span><ScrollText size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>سياسة الشحن</span>
           </Link>
 
           <Link href="/policies/privacy" className="nav-item minor">
-            <span>🔒</span>
+            <span><ShieldCheck size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>الخصوصية</span>
           </Link>
           
           <Link href="/wishlist" className="nav-item minor">
-            <span>❤️</span>
+            <span><Heart size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>المفضلة</span>
           </Link>
           
           <Link href="/cart" className="nav-item cart-link">
-            <span>🛒</span>
+            <span><ShoppingCart size={18} strokeWidth={2.1} aria-hidden="true" /></span>
             <span>السلة</span>
             {cartCount > 0 && (
               <span className={`cart-badge${cartBadgeBump ? ' is-bump' : ''}`}>{cartCount}</span>
@@ -145,7 +146,7 @@ export default function Header() {
           
           {isAdmin && (
             <Link href="/admin/dashboard" className="nav-item admin-btn">
-              <span>🎛️</span>
+              <span><SlidersHorizontal size={18} strokeWidth={2.1} aria-hidden="true" /></span>
               <span>لوحة التحكم</span>
             </Link>
           )}

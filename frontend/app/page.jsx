@@ -7,6 +7,7 @@ import { fetchPerfumes, fetchPerfumeReviews, fetchStoreSettings } from '@/lib/ap
 import Hero from '@/components/Hero'
 import { BLUR_DATA_URL, isOptimizableImageSrc, resolveImageSrc } from '@/lib/imagePlaceholders'
 import { trackLandingInteraction, trackSelectPromotion, trackViewPromotion } from '@/lib/analytics'
+import { PackageSearch, ReceiptText, MessageCircleMore } from 'lucide-react'
 
 const FEATURED_SORT_STORAGE_KEY = 'home_featured_sort'
 const VALID_FEATURED_SORTS = ['discount', 'newest', 'price-low']
@@ -540,7 +541,7 @@ export default function Home() {
             aria-label="تتبع الطلب"
             onClick={() => trackLandingInteraction({ action: 'quick_service_click', label: 'track_order', section: 'quick_services' })}
           >
-            <div className="offer-icon offer-tone-1">📦</div>
+            <div className="offer-icon offer-tone-1" aria-hidden="true"><PackageSearch size={28} strokeWidth={2.1} /></div>
             <h3 className="offer-title">تتبع الطلب</h3>
             <p className="offer-description">أدخل رقم الطلب والهاتف لمعرفة آخر حالة فوراً</p>
           </Link>
@@ -550,7 +551,7 @@ export default function Home() {
             aria-label="عرض طلباتي"
             onClick={() => trackLandingInteraction({ action: 'quick_service_click', label: 'my_orders', section: 'quick_services' })}
           >
-            <div className="offer-icon offer-tone-2">🧾</div>
+            <div className="offer-icon offer-tone-2" aria-hidden="true"><ReceiptText size={28} strokeWidth={2.1} /></div>
             <h3 className="offer-title">طلباتي</h3>
             <p className="offer-description">شاهد جميع طلباتك السابقة وحالة الدفع والتسليم</p>
           </Link>
@@ -560,7 +561,7 @@ export default function Home() {
             aria-label="التواصل مع الدعم"
             onClick={() => trackLandingInteraction({ action: 'quick_service_click', label: 'contact_support', section: 'quick_services' })}
           >
-            <div className="offer-icon offer-tone-3">💬</div>
+            <div className="offer-icon offer-tone-3" aria-hidden="true"><MessageCircleMore size={28} strokeWidth={2.1} /></div>
             <h3 className="offer-title">الدعم والتواصل</h3>
             <p className="offer-description">تواصل سريع عبر الرسائل أو الهاتف أو البريد الإلكتروني</p>
           </Link>
