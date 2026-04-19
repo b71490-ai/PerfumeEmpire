@@ -8,13 +8,14 @@ import { useCart } from '@/context/CartContext'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useAdmin } from '@/context/AdminContext'
 import { fetchStoreSettings } from '@/lib/api'
-import { Store, Phone, PackageSearch, ReceiptText, ScrollText, ShieldCheck, Heart, ShoppingCart, SlidersHorizontal } from 'lucide-react'
+import { Store, Phone, PackageSearch, ReceiptText, ScrollText, ShieldCheck, Heart, ShoppingBasket, SlidersHorizontal } from 'lucide-react'
 
 export default function Header() {
   const { getCartCount } = useCart()
   const { isAdmin } = useAdmin()
   const pathname = usePathname()
   const cartCount = getCartCount()
+  const cartBadgeText = cartCount > 99 ? '99+' : String(cartCount)
   const [cartBadgeBump, setCartBadgeBump] = useState(false)
   const [isScrollHidden, setIsScrollHidden] = useState(false)
   const isDataImage = (value) => typeof value === 'string' && value.startsWith('data:image/')
@@ -137,10 +138,10 @@ export default function Header() {
           </Link>
           
           <Link href="/cart" className="nav-item cart-link">
-            <span><ShoppingCart size={18} strokeWidth={2.1} aria-hidden="true" /></span>
+            <span><ShoppingBasket size={18} strokeWidth={2.25} aria-hidden="true" /></span>
             <span>السلة</span>
             {cartCount > 0 && (
-              <span className={`cart-badge${cartBadgeBump ? ' is-bump' : ''}`}>{cartCount}</span>
+              <span className={`cart-badge${cartBadgeBump ? ' is-bump' : ''}`}>{cartBadgeText}</span>
             )}
           </Link>
           

@@ -15155,6 +15155,39 @@ html {
     white-space: nowrap !important;
     scroll-snap-align: start;
   }
+
+  .main-header .header-nav .nav-item.cart-link,
+  .main-header .header-nav.header-nav--single-row .nav-item.cart-link {
+    overflow: visible !important;
+    padding-inline-end: 0.95rem !important;
+  }
+
+  .main-header .header-nav .nav-item.cart-link > span:first-child svg,
+  .main-header .header-nav.header-nav--single-row .nav-item.cart-link > span:first-child svg {
+    width: 19px !important;
+    height: 19px !important;
+    stroke-width: 2.25 !important;
+    opacity: 1 !important;
+  }
+
+  .main-header .header-nav .nav-item.cart-link .cart-badge,
+  .main-header .header-nav.header-nav--single-row .nav-item.cart-link .cart-badge {
+    top: -7px !important;
+    right: -7px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    width: auto !important;
+    padding: 0 5px !important;
+    border-radius: 999px !important;
+    font-size: 0.68rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    color: #ffffff !important;
+    background: #ef4444 !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 6px 14px rgba(239, 68, 68, 0.42) !important;
+    z-index: 3 !important;
+  }
 }
 
 
