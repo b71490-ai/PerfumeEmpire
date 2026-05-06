@@ -4,7 +4,7 @@ const defaultApiTarget = process.env.NODE_ENV === 'development'
   : 'https://perfume-backend-wlk8.onrender.com'
 
 const apiTarget = String(
-  process.env.API_PROXY_TARGET || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || defaultApiTarget
+  process.env.NEXT_PUBLIC_API_URL || defaultApiTarget
 ).replace(/\/+$/, '')
 
 const nextConfig = {

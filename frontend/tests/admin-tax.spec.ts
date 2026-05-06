@@ -1,10 +1,16 @@
 import { test, expect } from '@playwright/test'
 
 // This test assumes backend running at https://perfume-backend-wlk8.onrender.com and frontend at http://localhost:3001
-const BACKEND = process.env.BACKEND_URL || 'https://perfume-backend-wlk8.onrender.com'
+const BACKEND = process.env.NEXT_PUBLIC_API_URL || 'https://perfume-backend-wlk8.onrender.com'
 const FRONTEND = process.env.FRONTEND_URL || 'http://localhost:3001'
+const E2E_ADMIN_USERNAME = process.env.E2E_ADMIN_USERNAME || ''
+const E2E_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || ''
 
 test('admin can view tax total and apply tax filter', async ({ page, context, request }) => {
+  if (!E2E_ADMIN_USERNAME || !E2E_ADMIN_PASSWORD) {
+    test.skip(true, 'E2E_ADMIN_USERNAME and E2E_ADMIN_PASSWORD are required')
+  }
+
   // perform UI login on admin login page (ensures client app sets token)
   await page.goto(`${FRONTEND}/admin/login`)
   // instrument responses to debug login request
@@ -20,8 +26,8 @@ test('admin can view tax total and apply tax filter', async ({ page, context, re
     }
   })
   await page.locator('#username').waitFor({ timeout: 5000 })
-  await page.fill('#username', 'e2e_admin')
-  await page.fill('#password', 'admin123')
+  await page.fill('#username', E2E_ADMIN_USERNAME)
+  await page.fill('#password', E2E_ADMIN_PASSWORD)
   await page.click('button.btn-login')
   // wait for dashboard selector or login error
   const errorVisible = await page.locator('.error-message').isVisible().catch(() => false)

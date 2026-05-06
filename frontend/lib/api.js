@@ -79,6 +79,11 @@ export async function fetchPerfumeReviews(id) {
   return res.data;
 }
 
+export async function fetchPerfumeReviewHighlights(params = {}) {
+  const res = await api.get('/perfumes/reviews/highlights', { params });
+  return res.data;
+}
+
 export async function createPerfumeReview(id, payload) {
   const res = await api.post(`/perfumes/${id}/reviews`, payload);
   return res.data;

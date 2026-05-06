@@ -202,6 +202,58 @@ public class PerfumesController : ControllerBase
         return Ok(reviews);
     }
 
+    [HttpGet("reviews/highlights")]
+    public async Task<IActionResult> GetReviewHighlights([FromQuery] int limit = 3, [FromQuery] int perfumeLimit = 6)
+    {
+        var safeLimit = Math.Clamp(limit, 1, 20);
+        var safePerfumeLimit = Math.Clamp(perfumeLimit, 1, 20);
+
+        var topPerfumeIds = await _db.Reviews
+            .GroupBy(r => r.PerfumeId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Key)
+            .Take(safePerfumeLimit)
+            .ToListAsync();
+
+        if (topPerfumeIds.Count == 0)
+        {
+            return Ok(Array.Empty<object>());
+        }
+
+        var reviewRows = await (from r in _db.Reviews
+                                join p in _db.Perfumes on r.PerfumeId equals p.Id
+                                where topPerfumeIds.Contains(r.PerfumeId)
+                                      && r.Comment != null
+                                      && r.Comment != ""
+                                orderby r.CreatedAt descending
+                                select new
+                                {
+                                    r.PerfumeId,
+                                    ProductName = p.Name,
+                                    r.CustomerName,
+                                    r.Rating,
+                                    r.Comment,
+                                    r.CreatedAt
+                                })
+            .ToListAsync();
+
+        var normalized = reviewRows
+            .Where(x => !string.IsNullOrWhiteSpace(x.Comment))
+            .Take(safeLimit)
+            .Select(x => new
+            {
+                perfumeId = x.PerfumeId,
+                productName = x.ProductName ?? "منتج مميز",
+                customerName = string.IsNullOrWhiteSpace(x.CustomerName) ? "عميل موثق" : x.CustomerName,
+                rating = Math.Clamp(x.Rating, 1, 5),
+                comment = x.Comment!.Trim(),
+                createdAt = x.CreatedAt
+            })
+            .ToList();
+
+        return Ok(normalized);
+    }
+
     [HttpPost("{id}/reviews")]
     public async Task<IActionResult> AddReview(int id, [FromBody] CreateReviewDto dto)
     {

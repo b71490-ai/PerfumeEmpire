@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using StackExchange.Redis;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using System.Threading.RateLimiting;
 using PerfumeEmpire.Configuration;
 using PerfumeEmpire.Services;
@@ -32,14 +33,26 @@ catch { }
 var configJwt = builder.Configuration["Jwt:Key"];
 var envJwt = Environment.GetEnvironmentVariable("JWT_KEY");
 var jwtCandidate = !string.IsNullOrWhiteSpace(envJwt) ? envJwt : configJwt;
-Console.WriteLine($"[Program] Config Jwt:Key present: {!string.IsNullOrWhiteSpace(configJwt)}, length: {(configJwt?.Length ?? 0)}");
-Console.WriteLine($"[Program] Env JWT_KEY present: {!string.IsNullOrWhiteSpace(envJwt)}, length: {(envJwt?.Length ?? 0)}");
+if (builder.Environment.IsDevelopment())
+{
+    Console.WriteLine($"[Program] Config Jwt:Key present: {!string.IsNullOrWhiteSpace(configJwt)}");
+    Console.WriteLine($"[Program] Env JWT_KEY present: {!string.IsNullOrWhiteSpace(envJwt)}");
+}
 if (string.IsNullOrWhiteSpace(jwtCandidate) || jwtCandidate.Length < 32 || (jwtCandidate ?? string.Empty).Contains("dev_secret"))
 {
     var msg = "Invalid or missing Jwt:Key. Set a strong secret via environment or secret manager (minimum 32 chars).\n" +
               "Startup aborted to avoid using an insecure default key.";
     Console.Error.WriteLine(msg);
     throw new InvalidOperationException(msg);
+}
+
+var bootstrapUsername = (Environment.GetEnvironmentVariable("ADMIN_BOOTSTRAP_USERNAME") ?? string.Empty).Trim();
+var bootstrapPassword = Environment.GetEnvironmentVariable("ADMIN_BOOTSTRAP_PASSWORD");
+if (!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(bootstrapPassword))
+{
+    throw new InvalidOperationException(
+        "ADMIN_BOOTSTRAP_PASSWORD is required in Production. Startup aborted. " +
+        "Set ADMIN_BOOTSTRAP_PASSWORD via environment variables only.");
 }
 
 // Add services to the container.
@@ -52,23 +65,58 @@ builder.Services.AddHealthChecks();
 builder.Services.Configure<ZatcaOptions>(builder.Configuration.GetSection(ZatcaOptions.SectionName));
 builder.Services.AddHttpClient<IZatcaService, ZatcaService>();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Cloud platforms use dynamic proxy ranges, so we accept forwarded headers
+    // and rely on platform/network controls instead of hard-coded proxy lists.
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, token) =>
+    {
+        var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfterValue)
+            ? Math.Max(1, (int)Math.Ceiling(retryAfterValue.TotalSeconds))
+            : 60;
+        context.HttpContext.Response.Headers.RetryAfter = retryAfter.ToString();
+        context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            message = "تم تجاوز الحد المسموح من الطلبات. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.",
+            retryAfterSeconds = retryAfter
+        }, cancellationToken: token);
+    };
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
-        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var forwardedClient = string.IsNullOrWhiteSpace(forwardedFor)
+            ? null
+            : forwardedFor.Split(',')[0].Trim();
+        var ip = !string.IsNullOrWhiteSpace(forwardedClient)
+            ? forwardedClient
+            : (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
         var path = httpContext.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
         var isSensitivePath = path.Contains("/api/auth/login")
             || path.Contains("/api/auth/refresh")
             || path.Contains("/api/orders/customer/request-otp")
             || path.Contains("/api/orders/customer/verify-otp");
 
+        var userId = httpContext.User?.Identity?.IsAuthenticated == true
+            ? (httpContext.User.FindFirst("sub")?.Value
+                ?? httpContext.User.FindFirst("nameid")?.Value
+                ?? httpContext.User.Identity?.Name)
+            : null;
+        var clientKey = string.IsNullOrWhiteSpace(userId) ? ip : $"user:{userId}";
+
         return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: $"{ip}:{(isSensitivePath ? "sensitive" : "general")}",
+            partitionKey: $"{clientKey}:{(isSensitivePath ? "sensitive" : "general")}",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = isSensitivePath ? 20 : 120,
+                PermitLimit = isSensitivePath ? 40 : 600,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
@@ -127,6 +175,8 @@ if (!string.IsNullOrWhiteSpace(redisConn))
 
 // JWT Authentication
 var jwtKey = jwtCandidate!;
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? builder.Configuration["Jwt:Issuer"];
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? builder.Configuration["Jwt:Audience"];
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 builder.Services.AddAuthentication(options =>
 {
@@ -139,8 +189,10 @@ builder.Services.AddAuthentication(options =>
         options.SaveToken = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = !string.IsNullOrWhiteSpace(jwtIssuer),
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = !string.IsNullOrWhiteSpace(jwtAudience),
+            ValidAudience = jwtAudience,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
         };
@@ -344,6 +396,11 @@ using (var scope = app.Services.CreateScope())
         // Safe fallback for fresh/empty SQLite databases commonly seen in container deploys.
         if (userTableCount == 0)
         {
+            if (!app.Environment.IsDevelopment())
+            {
+                throw new InvalidOperationException("Destructive SQLite reset is blocked outside Development.");
+            }
+
             db.Database.EnsureDeleted();
             db.Database.EnsureCreated();
             databaseReady = true;
@@ -424,10 +481,16 @@ using (var scope = app.Services.CreateScope())
             }
         }
 
-        // SQLite fallback: if migrations are unavailable in a fresh environment,
-        // create schema from the current model to avoid startup crashes.
+        // SQLite fallback for Development only when migrations are unavailable in fresh environments.
         if (!databaseReady && db.Database.IsSqlite())
         {
+            if (!app.Environment.IsDevelopment())
+            {
+                throw new InvalidOperationException(
+                    "Database migrations failed in Production and runtime schema fallback is disabled. " +
+                    "Apply EF Core migrations before starting the app.");
+            }
+
             try
             {
                 var userTableCount = SqliteUserTableCount();
@@ -553,85 +616,65 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 
-    // Seed admin user for development (replace with real user management in production)
-    if (!db.Users.Any())
+    if (app.Environment.IsDevelopment())
     {
-        var hashed = BCrypt.Net.BCrypt.HashPassword("admin123");
-        db.Users.Add(new User { Username = "admin", Password = hashed, Role = "Admin", Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin") });
-        db.SaveChanges();
-    }
-    else
-    {
-        // Ensure at least one admin has baseline admin permissions during local development
-        var adminUser = db.Users.FirstOrDefault(u => u.Role == "Admin" || u.Role == "admin");
-        if (adminUser != null)
+        try
         {
-            var adminMask = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin");
-            if (adminUser.Permissions == 0 || (adminUser.Permissions & (long)PerfumeEmpire.Authorization.Permission.ManageCoupons) == 0)
+            if (!string.IsNullOrWhiteSpace(bootstrapUsername)
+                && !string.IsNullOrWhiteSpace(bootstrapPassword)
+                && bootstrapPassword.Length >= 8)
             {
-                adminUser.Permissions = adminMask;
-                db.SaveChanges();
-            }
-        }
-    }
+                var bootstrapAdmin = db.Users.FirstOrDefault(u => EF.Functions.Collate(u.Username, "NOCASE") == bootstrapUsername);
 
-    // Optional production-safe bootstrap for admin credentials.
-    // If ADMIN_BOOTSTRAP_PASSWORD is provided, sync that password to the bootstrap admin user.
-    try
-    {
-        var bootstrapUsername = (Environment.GetEnvironmentVariable("ADMIN_BOOTSTRAP_USERNAME") ?? "admin").Trim();
-        var bootstrapPassword = Environment.GetEnvironmentVariable("ADMIN_BOOTSTRAP_PASSWORD");
-        if (!string.IsNullOrWhiteSpace(bootstrapUsername)
-            && !string.IsNullOrWhiteSpace(bootstrapPassword)
-            && bootstrapPassword.Length >= 8)
-        {
-            var loweredBootstrapUsername = bootstrapUsername.ToLower();
-            var bootstrapAdmin = db.Users.FirstOrDefault(u => u.Username.ToLower() == loweredBootstrapUsername);
-
-            if (bootstrapAdmin == null)
-            {
-                db.Users.Add(new User
+                if (bootstrapAdmin == null)
                 {
-                    Username = bootstrapUsername,
-                    Password = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword),
-                    Role = "Admin",
-                    Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin")
-                });
-                db.SaveChanges();
-                Console.WriteLine($"Bootstrap admin user created: {bootstrapUsername}");
+                    db.Users.Add(new User
+                    {
+                        Username = bootstrapUsername,
+                        Password = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword),
+                        Role = "Admin",
+                        Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin")
+                    });
+                    db.SaveChanges();
+                    Console.WriteLine($"Development bootstrap admin user created: {bootstrapUsername}");
+                }
+                else
+                {
+                    var updated = false;
+                    if (!BCrypt.Net.BCrypt.Verify(bootstrapPassword, bootstrapAdmin.Password))
+                    {
+                        bootstrapAdmin.Password = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword);
+                        updated = true;
+                    }
+
+                    if (!string.Equals(bootstrapAdmin.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+                    {
+                        bootstrapAdmin.Role = "Admin";
+                        updated = true;
+                    }
+
+                    if (bootstrapAdmin.Permissions == 0 || (bootstrapAdmin.Permissions & (long)PerfumeEmpire.Authorization.Permission.ManageCoupons) == 0)
+                    {
+                        bootstrapAdmin.Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin");
+                        updated = true;
+                    }
+
+                    if (updated)
+                    {
+                        db.SaveChanges();
+                        Console.WriteLine($"Development bootstrap admin user synchronized: {bootstrapUsername}");
+                    }
+                }
             }
             else
             {
-                var updated = false;
-                if (!BCrypt.Net.BCrypt.Verify(bootstrapPassword, bootstrapAdmin.Password))
-                {
-                    bootstrapAdmin.Password = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword);
-                    updated = true;
-                }
-
-                if (!string.Equals(bootstrapAdmin.Role, "Admin", StringComparison.OrdinalIgnoreCase))
-                {
-                    bootstrapAdmin.Role = "Admin";
-                    updated = true;
-                }
-
-                if (bootstrapAdmin.Permissions == 0 || (bootstrapAdmin.Permissions & (long)PerfumeEmpire.Authorization.Permission.ManageCoupons) == 0)
-                {
-                    bootstrapAdmin.Permissions = PerfumeEmpire.Authorization.PermissionProfiles.ForRole("Admin");
-                    updated = true;
-                }
-
-                if (updated)
-                {
-                    db.SaveChanges();
-                    Console.WriteLine($"Bootstrap admin user synchronized: {bootstrapUsername}");
-                }
+                Console.WriteLine("Development bootstrap admin skipped. Set ADMIN_BOOTSTRAP_USERNAME and ADMIN_BOOTSTRAP_PASSWORD to enable it.");
             }
         }
-    }
-    catch (Exception adminBootstrapEx)
-    {
-        Console.Error.WriteLine("Admin bootstrap skipped due to error: " + adminBootstrapEx.Message);
+        catch (Exception adminBootstrapEx)
+        {
+            Console.Error.WriteLine("Admin bootstrap skipped due to error: " + adminBootstrapEx.Message);
+        }
     }
 }
 
@@ -641,11 +684,27 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
+    await next();
+});
 app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 // In development we avoid forcing HTTPS redirection so local proxying (HTTP) works
 // and developers can test without dealing with self-signed cert redirects.
-if (!app.Environment.IsDevelopment())
+// In reverse-proxy hosting (Render, ingress, load balancers), TLS termination
+// usually happens before the app. Keep backend redirect configurable to avoid
+// noisy "Failed to determine the https port" warnings.
+var forceHttpsRedirect = string.Equals(
+    Environment.GetEnvironmentVariable("FORCE_HTTPS_REDIRECT"),
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+if (!app.Environment.IsDevelopment() && forceHttpsRedirect)
 {
     app.UseHttpsRedirection();
 }

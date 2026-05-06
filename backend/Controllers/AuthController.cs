@@ -8,6 +8,7 @@ using PerfumeEmpire.DTOs;
 using PerfumeEmpire.Models;
 using System.Linq;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 
 namespace PerfumeEmpire.Controllers;
 
@@ -51,6 +52,18 @@ public class AuthController : ControllerBase
         return keyBytes;
     }
 
+    private string? ResolveJwtIssuer()
+    {
+        var envIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
+        return !string.IsNullOrWhiteSpace(envIssuer) ? envIssuer : _config["Jwt:Issuer"];
+    }
+
+    private string? ResolveJwtAudience()
+    {
+        var envAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+        return !string.IsNullOrWhiteSpace(envAudience) ? envAudience : _config["Jwt:Audience"];
+    }
+
     private Microsoft.AspNetCore.Http.CookieOptions BuildRefreshCookieOptions(DateTime expiresAt)
     {
         var secure = _env.IsProduction() || Request.IsHttps;
@@ -75,8 +88,7 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { message = "Invalid credentials" });
             }
 
-            var loweredUsername = normalizedUsername.ToLower();
-            var user = _db.Users.FirstOrDefault(u => u.Username.ToLower() == loweredUsername);
+            var user = _db.Users.FirstOrDefault(u => EF.Functions.Collate(u.Username, "NOCASE") == normalizedUsername);
             if (user == null) return Unauthorized(new { message = "Invalid credentials" });
 
             // Verify hashed password
@@ -85,6 +97,8 @@ public class AuthController : ControllerBase
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = ResolveJwtKeyBytes();
+            var issuer = ResolveJwtIssuer();
+            var audience = ResolveJwtAudience();
 
             var normalizedRole = NormalizeRole(user.Role);
             var claims = new List<Claim>
@@ -98,6 +112,8 @@ public class AuthController : ControllerBase
             {
                 Subject = new ClaimsIdentity(claims),
                 Expires = DateTime.UtcNow.AddHours(8),
+                Issuer = issuer,
+                Audience = audience,
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
@@ -169,6 +185,8 @@ public class AuthController : ControllerBase
         // generate new JWT
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = ResolveJwtKeyBytes();
+        var issuer = ResolveJwtIssuer();
+        var audience = ResolveJwtAudience();
         var normalizedRole = NormalizeRole(user.Role);
         var claims = new List<Claim>
         {
@@ -181,6 +199,8 @@ public class AuthController : ControllerBase
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(8),
+            Issuer = issuer,
+            Audience = audience,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 

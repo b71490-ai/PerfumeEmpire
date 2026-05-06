@@ -1,11 +1,38 @@
 import { NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
+
+const jwtKey = process.env.JWT_KEY || ''
+const jwtIssuer = process.env.JWT_ISSUER || undefined
+const jwtAudience = process.env.JWT_AUDIENCE || undefined
+
+function extractRole(payload) {
+  const directRole = payload?.role
+  const claimRole = payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
+  return String(directRole || claimRole || '').trim().toLowerCase()
+}
+
+async function validateAdminToken(token) {
+  if (!token || !jwtKey) return false
+
+  const options = { algorithms: ['HS256'] }
+  if (jwtIssuer) options.issuer = jwtIssuer
+  if (jwtAudience) options.audience = jwtAudience
+
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtKey), options)
+    const role = extractRole(payload)
+    return role === 'admin' || role === 'manager' || role === 'editor' || role === 'support'
+  } catch {
+    return false
+  }
+}
 
 /**
  * Protect /admin/* routes server-side.
  * Allows Next internals and public assets, permits /admin/login,
  * and redirects unauthenticated requests to the login page.
  */
-export function middleware(request) {
+export async function middleware(request) {
   const { pathname } = request.nextUrl
 
   // Allow Next internals and public assets
@@ -25,10 +52,9 @@ export function middleware(request) {
     }
 
     const tokenCookie = request.cookies.get('token')?.value
-    const authHeader = request.headers.get('authorization')
-    const hasToken = Boolean(tokenCookie) || Boolean(authHeader)
+    const hasValidToken = await validateAdminToken(tokenCookie)
 
-    if (!hasToken) {
+    if (!hasValidToken) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
       url.searchParams.set('from', pathname)

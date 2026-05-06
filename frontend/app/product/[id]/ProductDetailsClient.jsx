@@ -32,6 +32,10 @@ export default function ProductDetailsClient({ productId }) {
   const lastTrackedProductIdRef = useRef(null)
   const locale = getUserLocale('ar-SA')
 
+  const resolveErrorMessage = (err, fallback = 'تعذر تحميل بيانات المنتج حالياً. حاول مرة أخرى بعد قليل.') => {
+    return err?.response?.data?.message || err?.response?.data?.error || err?.message || fallback
+  }
+
   const { addToCart, toggleWishlist, isInWishlist, maintenanceMode, maintenanceMessage } = useCart()
 
   useEffect(() => {
@@ -62,7 +66,7 @@ export default function ProductDetailsClient({ productId }) {
           setFreeShippingThreshold(Number(settingsData.freeShippingThreshold ?? 500))
         }
       } catch (err) {
-        setError(err.message)
+        setError(resolveErrorMessage(err))
       } finally {
         setLoading(false)
       }

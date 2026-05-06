@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-const BACKEND = process.env.BACKEND_URL || 'https://perfume-backend-wlk8.onrender.com';
+const BACKEND = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development'
+  ? 'http://localhost:5000'
+  : 'https://perfume-backend-wlk8.onrender.com')).replace(/\/+$/, '');
 
 export async function POST(req) {
   try {
@@ -36,33 +38,21 @@ export async function POST(req) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    // forward backend Set-Cookie (e.g. refresh token) to the client when present
+    // Forward backend Set-Cookie headers as-is to avoid brittle manual parsing.
     try {
-      const setCookieHeader = resp.headers.get('set-cookie');
-      if (setCookieHeader) {
-        // there may be multiple cookies concatenated with comma; split conservatively
-        const cookies = setCookieHeader.split(/,(?=[^ ;]+=)/g);
-        for (const cookieStr of cookies) {
-          const parts = cookieStr.split(';').map(p => p.trim());
-          const [nameValue, ...attrs] = parts;
-          const eq = nameValue.indexOf('=');
-          if (eq === -1) continue;
-          const name = nameValue.substring(0, eq);
-          const value = nameValue.substring(eq + 1);
+      const setCookieHeaders = typeof resp.headers.getSetCookie === 'function'
+        ? resp.headers.getSetCookie()
+        : [];
 
-          const options = { path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production' };
-          for (const a of attrs) {
-            const lower = a.toLowerCase();
-            if (lower === 'httponly') options.httpOnly = true;
-            else if (lower === 'secure') options.secure = true;
-            else if (lower.startsWith('samesite=')) options.sameSite = a.split('=')[1].toLowerCase();
-            else if (lower.startsWith('path=')) options.path = a.split('=')[1];
-            else if (lower.startsWith('max-age=')) options.maxAge = parseInt(a.split('=')[1], 10);
-          }
-
-          // NextResponse.cookies.set will accept boolean httpOnly and sameSite as string
-          response.cookies.set(name, value, options);
+      if (setCookieHeaders.length === 0) {
+        const rawSetCookie = resp.headers.get('set-cookie');
+        if (rawSetCookie) {
+          response.headers.append('set-cookie', rawSetCookie);
         }
+      }
+
+      for (const cookieHeader of setCookieHeaders) {
+        response.headers.append('set-cookie', cookieHeader);
       }
     } catch (ex) {
       // don't block login if cookie forwarding fails

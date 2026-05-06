@@ -24,6 +24,18 @@ export function setAuthToken(token) {
 api.interceptors.response.use(
   response => response,
   async error => {
+    const status = error?.response?.status;
+    const serverData = error?.response?.data;
+    const serverMessage =
+      (typeof serverData?.message === 'string' && serverData.message.trim())
+      || (typeof serverData?.error === 'string' && serverData.error.trim())
+      || '';
+    if (serverMessage) {
+      error.message = serverMessage;
+    } else if (status === 429) {
+      error.message = 'تم إرسال طلبات كثيرة في وقت قصير. يرجى الانتظار قليلًا ثم إعادة المحاولة.';
+    }
+
     const originalRequest = error.config || {};
     const requestUrl = typeof originalRequest.url === 'string' ? originalRequest.url : '';
     const isAuthEndpoint = requestUrl.includes('/auth/refresh') || requestUrl.includes('/auth/login') || requestUrl.includes('/auth/logout');

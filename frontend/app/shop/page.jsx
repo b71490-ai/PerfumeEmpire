@@ -48,6 +48,10 @@ export default function Shop() {
   const hasHydratedFiltersRef = useRef(false)
   const normalizedSearchTerm = (deferredSearchTerm || '').toString().trim().toLowerCase()
 
+  const resolveErrorMessage = (err, fallback = 'تعذر تحميل البيانات حالياً. حاول مرة أخرى بعد قليل.') => {
+    return err?.response?.data?.message || err?.response?.data?.error || err?.message || fallback
+  }
+
   // small toast helper used across this page
   const showToast = (message, type = 'info') => {
     try {
@@ -157,7 +161,7 @@ export default function Shop() {
           setCurrencyCode(settings.currencyCode || 'SAR')
         }
       } catch (err) {
-        setError(err.message)
+        setError(resolveErrorMessage(err))
       } finally {
         setLoading(false)
       }

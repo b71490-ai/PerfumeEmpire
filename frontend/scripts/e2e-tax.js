@@ -1,9 +1,15 @@
 const axios = require('axios')
 ;(async () => {
   try {
-    const BACKEND = process.env.BACKEND_URL || 'https://perfume-backend-wlk8.onrender.com'
-    console.log('Logging in as e2e_admin...')
-    const login = await axios.post(`${BACKEND}/api/auth/login`, { username: 'e2e_admin', password: 'admin123' }, { withCredentials: true })
+    const BACKEND = process.env.NEXT_PUBLIC_API_URL || 'https://perfume-backend-wlk8.onrender.com'
+    const username = process.env.E2E_ADMIN_USERNAME || ''
+    const password = process.env.E2E_ADMIN_PASSWORD || ''
+    if (!username || !password) {
+      throw new Error('E2E_ADMIN_USERNAME and E2E_ADMIN_PASSWORD are required')
+    }
+
+    console.log('Logging in as configured E2E admin...')
+    const login = await axios.post(`${BACKEND}/api/auth/login`, { username, password }, { withCredentials: true })
     if (login.status !== 200) throw new Error('login failed')
     const token = login.data?.token
     console.log('Got token length:', token ? token.length : 'none')

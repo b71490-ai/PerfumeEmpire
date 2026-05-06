@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { fetchPerfumes, fetchPerfumeReviews, fetchStoreSettings } from '@/lib/api'
+import { fetchPerfumes, fetchPerfumeReviewHighlights, fetchStoreSettings } from '@/lib/api'
 import Hero from '@/components/Hero'
 import { BLUR_DATA_URL, isOptimizableImageSrc, resolveImageSrc } from '@/lib/imagePlaceholders'
 import { trackLandingInteraction, trackSelectPromotion, trackViewPromotion } from '@/lib/analytics'
@@ -110,36 +110,23 @@ export default function Home() {
 
           setFeaturedProducts(sortedFeatured)
 
-          const reviewCandidates = [...perfumes]
-            .filter((item) => item && item.id && Number(item.reviewsCount || 0) > 0)
-            .sort((a, b) => Number(b.reviewsCount || 0) - Number(a.reviewsCount || 0))
-            .slice(0, 6)
-
-          if (reviewCandidates.length > 0) {
-            const reviewsByProduct = await Promise.all(
-              reviewCandidates.map(async (item) => {
-                try {
-                  const result = await fetchPerfumeReviews(item.id)
-                  return { item, reviews: Array.isArray(result) ? result : [] }
-                } catch {
-                  return { item, reviews: [] }
-                }
-              })
-            )
-
-            const normalizedReviews = reviewsByProduct
-              .flatMap(({ item, reviews }) => reviews
+          try {
+            const highlights = await fetchPerfumeReviewHighlights({ limit: 3, perfumeLimit: 6 })
+            const normalizedReviews = Array.isArray(highlights)
+              ? highlights
                 .filter((review) => review && String(review.comment || '').trim())
                 .map((review) => ({
                   name: review.customerName || 'عميل موثق',
                   rating: Math.max(1, Math.min(5, Number(review.rating || 5))),
                   text: String(review.comment || '').trim(),
-                  productName: item.name || 'منتج مميز',
+                  productName: review.productName || 'منتج مميز',
                   createdAt: review.createdAt || null
-                })))
-              .slice(0, 3)
+                }))
+              : []
 
-            setRealTestimonials(normalizedReviews)
+            setRealTestimonials(normalizedReviews.slice(0, 3))
+          } catch {
+            // keep fallback testimonials
           }
         }
       } catch {
